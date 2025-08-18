@@ -1,0 +1,395 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/**
+ * =========================
+ * Enums (for reviews)
+ * =========================
+ */
+enum ReviewServiceType {
+  doctor
+  hospital
+  lab
+  medicine
+  online_consultation
+  subscription
+}
+
+enum ReviewExperience {
+  positive
+  negative
+  neutral
+}
+
+/**
+ * =========================
+ * Lookup / content tables
+ * =========================
+ */
+
+model AppointmentStatus {
+  id          Int       @id @map("id") @db.TinyInt
+  title       String    @db.VarChar(100)
+  statusKey   String    @unique @map("status_key") @db.VarChar(50)
+  description String?   @db.Text
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@map("appointment_statuses")
+}
+
+model Category {
+  id                          Int       @id @default(autoincrement())
+  name                        String    @db.VarChar(255)
+  points                      Int       @default(0) @db.TinyInt
+  isOnboardingPaymentRequired Boolean   @default(false) @map("is_onboarding_payment_required")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime? @map("updated_at")
+  deletedAt                   DateTime? @map("deleted_at")
+
+  doctors Doctor[]
+
+  @@map("categories")
+}
+
+model Speciality {
+  id             Int       @id @default(autoincrement())
+  name           String    @db.VarChar(255)
+  slug           String    @unique @db.VarChar(255)
+  parentId       Int?      @map("parent_id")
+  position       Int?      @default(0)
+  isScrapped     Int?      @default(0) @map("is_scrapped") @db.TinyInt
+  displayContent Json?     @map("display_content")
+  media          Json?
+  seo            Json?
+  faqs           Json?
+  actions        Json?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime? @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Self relation (parent -> children)
+  parent   Speciality?  @relation("SpecialityToSpeciality", fields: [parentId], references: [id])
+  children Speciality[] @relation("SpecialityToSpeciality")
+
+  // Relations to doctors
+  doctorsMain       Doctor[] // via Doctor.mainSpecialityId
+  doctorSpecialties DoctorSpeciality[] // join rows
+
+  @@map("specialities")
+}
+
+/**
+ * =========================
+ * Core entities (updated Doctor)
+ * =========================
+ */
+
+model Doctor {
+  id               BigInt    @id @default(autoincrement())
+  name             String?   @db.VarChar(120)
+  pmdcNumber       String?   @map("pmdc_number") @db.VarChar(50)
+  email            String?   @db.VarChar(255)
+  phone            String?   @db.VarChar(50)
+  bio              String?   @db.Text
+  degree          String?   @db.VarChar(1000)
+  qualifications  Json?     @default("[]")
+  experiences     Json?     @default("[]") 
+  publications    Json?     @default("[]")
+  profilePicUrl    String?   @map("profile_pic_url") @db.VarChar(1024)
+  dateOfExperience DateTime? @map("date_of_experience") @db.Date
+  mainSpecialityId Int       @map("main_speciality_id")
+  categoryId       Int?      @map("category_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  // Relations
+  mainSpeciality Speciality @relation(fields: [mainSpecialityId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  category       Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  practices   DoctorPractice[]
+  users       User[] // via User.doctorId
+  specialties DoctorSpeciality[] // many-to-many join rows
+  reviews     Review[]           @relation("DoctorReviews")
+
+  @@index([name])
+  @@index([email])
+  @@index([phone])
+  @@map("doctors")
+}
+
+model DoctorSpeciality {
+  id           BigInt    @id @default(autoincrement())
+  doctorId     BigInt    @map("doctor_id")
+  specialityId Int       @map("speciality_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime? @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  doctor     Doctor     @relation(fields: [doctorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  speciality Speciality @relation(fields: [specialityId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([doctorId, specialityId], map: "uniq_doctor_speciality")
+  @@map("doctor_speciality")
+}
+
+/**
+ * =========================
+ * Hospitals / practices / availabilities / slots
+ * =========================
+ */
+
+model Hospital {
+  id        BigInt    @id @default(autoincrement())
+  name      String?   @db.VarChar(500)
+  city      String?   @db.VarChar(255)
+  address   String?   @db.Text
+  lat       Float?    @db.Double
+  lng       Float?    @db.Double
+  phone     String?   @db.Text
+  type      Int?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  practices DoctorPractice[]
+
+  @@index([city])
+  @@map("hospitals")
+}
+
+model DoctorPractice {
+  id                         BigInt    @id @default(autoincrement())
+  doctorId                   BigInt    @map("doctor_id")
+  hospitalId                 BigInt?   @map("hospital_id")
+  practiceSlug               String?   @map("practice_slug")
+  profileSlug                String?   @map("profile_slug")
+  consultationFee            Int?      @map("consultation_fee")
+  discountFee                Int?      @map("discount_fee")
+  appointmentPolicy          Json?     @map("appointment_policy")
+  patientsPerHour            Int?      @map("patients_per_hour")
+  avgTimePerPatientMinutes   Int?      @map("avg_time_per_patient_minutes")
+  onPanel                    Boolean   @default(false) @map("on_panel")
+  consultancyReferralPercent Int?      @default(0) @map("consultancy_referral_percent")
+  activeFrom                 DateTime? @map("active_from") @db.Date
+  activeTo                   DateTime? @map("active_to") @db.Date
+  createdAt                  DateTime  @default(now()) @map("created_at")
+  updatedAt                  DateTime  @updatedAt @map("updated_at")
+  deletedAt                  DateTime? @map("deleted_at")
+
+  doctor   Doctor            @relation(fields: [doctorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  hospital Hospital?         @relation(fields: [hospitalId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  slots    AppointmentSlot[]
+  avails   Availability[]
+  apps     Appointment[]
+
+  @@index([doctorId])
+  @@index([hospitalId])
+  @@index([profileSlug], map: "idx_doctor_practices_profile_slug")
+  @@map("doctor_practices")
+}
+
+model Availability {
+  id                  BigInt    @id @default(autoincrement())
+  doctorPracticeId    BigInt    @map("doctor_practice_id")
+  weekday             Int
+  startTime           DateTime? @map("start_time") @db.Time(0)
+  endTime             DateTime? @map("end_time") @db.Time(0)
+  slotDurationMinutes Int       @map("slot_duration_minutes")
+  isActive            Boolean   @default(true) @map("is_active")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+
+  practice DoctorPractice @relation(fields: [doctorPracticeId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([doctorPracticeId, weekday])
+  @@map("availabilities")
+}
+
+model AppointmentSlot {
+  id               BigInt    @id @default(autoincrement())
+  doctorPracticeId BigInt    @map("doctor_practice_id")
+  slotDate         DateTime  @map("slot_date") @db.Date
+  startTs          DateTime  @map("start_ts")
+  endTs            DateTime  @map("end_ts")
+  slotStatus       Int       @default(0) @map("slot_status")
+  holdUntil        DateTime? @map("hold_until")
+  slotVersion      Int       @default(1) @map("slot_version")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  practice DoctorPractice @relation(fields: [doctorPracticeId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  apps     Appointment[]
+
+  @@index([doctorPracticeId, slotDate, slotStatus, startTs], map: "idx_slots_practice_date_status_start")
+  @@map("appointment_slots")
+}
+
+/**
+ * =========================
+ * Appointments (unchanged structure; status still numeric)
+ * =========================
+ */
+
+model Appointment {
+  id               BigInt    @id @default(autoincrement())
+  uuid             String    @default(uuid()) @db.Char(36)
+  slotId           BigInt?   @map("slot_id")
+  doctorPracticeId BigInt?   @map("doctor_practice_id")
+  patientId        BigInt?   @map("patient_id")
+  userId           BigInt?   @map("user_id")
+  status           Int       @default(0) // still numeric; can link to AppointmentStatus later
+  fee              Int?
+  discount         Int?
+  paymentStatus    Int?      @map("payment_status")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  slot     AppointmentSlot? @relation(fields: [slotId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  practice DoctorPractice?  @relation(fields: [doctorPracticeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  patient  Patient?         @relation(fields: [patientId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  user     User?            @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([doctorPracticeId, status, createdAt], map: "idx_apps_practice_status_created")
+  @@index([slotId])
+  @@index([patientId])
+  @@map("appointments")
+}
+
+/**
+ * =========================
+ * Reviews (new)
+ * =========================
+ */
+
+model Review {
+  id          BigInt            @id @default(autoincrement())
+  serviceId   BigInt            @map("service_id")
+  serviceType ReviewServiceType @map("service_type")
+  doctorId    BigInt?           @map("doctor_id")
+
+  // named relation + FK
+  doctor Doctor? @relation("DoctorReviews", fields: [doctorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  rating            Int               @db.TinyInt
+  reviewText        String?           @map("review_text")
+  isPinned          Boolean           @default(false) @map("is_pinned")
+  publishedBy       BigInt            @map("published_by")
+  publishedAt       DateTime?         @map("published_at")
+  overallExperience ReviewExperience? @map("overall_experience")
+  isPublished       Boolean           @default(false) @map("is_published")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  deletedAt         DateTime?         @map("deleted_at")
+
+  @@index([serviceId, serviceType], map: "idx_service")
+  @@index([doctorId], map: "idx_doctor")
+  @@index([publishedBy], map: "idx_published")
+  @@map("reviews")
+}
+
+/**
+ * =========================
+ * Users / types / patients (as before)
+ * =========================
+ */
+
+model User {
+  id            BigInt    @id @default(autoincrement())
+  email         String    @unique @db.VarChar(255)
+  username      String?   @unique @db.VarChar(100)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  fullName      String?   @map("full_name") @db.VarChar(255)
+  phone         String?   @db.VarChar(50)
+  phoneVerified Boolean   @default(false) @map("phone_verified")
+  userTypeId    Int       @map("user_type_id") @db.SmallInt
+  isActive      Boolean   @default(true) @map("is_active")
+  isSystem      Boolean   @default(false) @map("is_system")
+  doctorId      BigInt?   @map("doctor_id")
+  lastSeenAt    DateTime? @map("last_seen_at") @db.DateTime(0)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  type     UserType      @relation(fields: [userTypeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  doctor   Doctor?       @relation(fields: [doctorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  patients Patient[]
+  apps     Appointment[]
+
+  @@index([email], map: "idx_users_email")
+  @@index([username], map: "idx_users_username")
+  @@index([phone], map: "idx_users_phone")
+  @@index([userTypeId], map: "idx_users_user_type")
+  @@map("users")
+}
+
+model UserType {
+  id       Int    @id @db.SmallInt
+  typeName String @unique @map("type_name") @db.VarChar(50)
+
+  users User[]
+
+  @@map("user_types")
+}
+
+model Patient {
+  id                  BigInt    @id @default(autoincrement())
+  accountOwnerId      BigInt    @map("account_owner_id")
+  uuid                String    @default(uuid()) @db.Char(36)
+  medicalRecordNumber String?   @unique @map("medical_record_number") @db.VarChar(64)
+  firstName           String    @map("first_name") @db.VarChar(120)
+  lastName            String    @map("last_name") @db.VarChar(120)
+  fullName            String?   @map("full_name") @db.VarChar(255)
+  gender              String?   @db.VarChar(30)
+  dateOfBirth         DateTime? @map("date_of_birth") @db.Date
+  email               String?   @db.VarChar(255)
+  phone               String?   @db.VarChar(50)
+  phoneVerified       Boolean   @default(false) @map("phone_verified")
+  addressLine1        String?   @map("address_line1")
+  addressLine2        String?   @map("address_line2")
+  city                String?   @db.VarChar(128)
+  state               String?   @db.VarChar(128)
+  postalCode          String?   @map("postal_code") @db.VarChar(32)
+  country             String?   @db.VarChar(64)
+  emergencyContacts   Json      @default("{}") @map("emergency_contacts")
+  insuranceProvider   String?   @map("insurance_provider") @db.VarChar(255)
+  insuranceNumber     String?   @map("insurance_number") @db.VarChar(128)
+  insuranceValidTill  DateTime? @map("insurance_valid_till") @db.Date
+  consentEmail        Boolean   @default(true) @map("consent_email")
+  consentSms          Boolean   @default(true) @map("consent_sms")
+  firstSeenAt         DateTime? @map("first_seen_at")
+  source              String?   @db.VarChar(128)
+  utmSource           String?   @map("utm_source") @db.VarChar(128)
+  utmMedium           String?   @map("utm_medium") @db.VarChar(128)
+  utmCampaign         String?   @map("utm_campaign") @db.VarChar(128)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+  lastVisitAt         DateTime? @map("last_visit_at")
+
+  owner User          @relation(fields: [accountOwnerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  apps  Appointment[]
+
+  @@index([phone])
+  @@index([fullName])
+  @@index([accountOwnerId])
+  @@map("patients")
+}
