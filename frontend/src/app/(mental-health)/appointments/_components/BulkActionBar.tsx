@@ -1,6 +1,6 @@
 'use client';
 
-import { useBulkActions } from '@/lib/hooks/appointments';
+import { useBulkActions, type BulkActionType, type BulkActionInput } from '@/lib/hooks/appointments';
 import { useAppointmentsStore } from '@/lib/store/appointments';
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { NotificationsActive, Phone, PersonAdd, Warning } from '@mui/icons-material';
@@ -12,37 +12,21 @@ export function BulkActionBar() {
 
   if (selectedIds.length === 0) return null;
 
-  const handleRemind = () => {
-    bulkMutation.mutate(
-      { action: 'REMIND', ids: selectedIds },
-      {
-        onSuccess: () => {
-          clearSelection();
-        },
-      }
-    );
-  };
+  const handleAction = (action: BulkActionType, assigneeId?: string) => {
+    const input: BulkActionInput = {
+      action,
+      ids: selectedIds,
+      ...(assigneeId && { assigneeId }),
+    };
 
-  const handleEscalate = () => {
-    bulkMutation.mutate(
-      { action: 'ESCALATE_CALL', ids: selectedIds },
-      {
-        onSuccess: () => {
-          clearSelection();
-        },
-      }
-    );
-  };
-
-  const handleAssign = () => {
-    bulkMutation.mutate(
-      { action: 'ASSIGN', ids: selectedIds, assigneeId: 'agent-1' },
-      {
-        onSuccess: () => {
-          clearSelection();
-        },
-      }
-    );
+    bulkMutation.mutate(input, {
+      onSuccess: () => {
+        clearSelection();
+      },
+      onError: (error: Error) => {
+        console.error(`Failed to perform bulk action ${action}:`, error);
+      },
+    });
   };
 
   return (
@@ -58,6 +42,7 @@ export function BulkActionBar() {
         transform: selectedIds.length === 0 ? 'translateY(100%)' : 'translateY(0)',
         transition: 'transform 0.2s ease-in-out',
         zIndex: 1000,
+        bgcolor: 'background.paper',
       }}
     >
       <Box
@@ -88,7 +73,7 @@ export function BulkActionBar() {
           <Button
             variant="outlined"
             startIcon={<NotificationsActive />}
-            onClick={handleRemind}
+            onClick={() => handleAction('REMIND')}
             disabled={bulkMutation.isPending}
           >
             Remind All
@@ -96,7 +81,7 @@ export function BulkActionBar() {
           <Button
             variant="outlined"
             startIcon={<Phone />}
-            onClick={handleEscalate}
+            onClick={() => handleAction('ESCALATE_CALL')}
             disabled={bulkMutation.isPending}
           >
             Escalate to Call
@@ -104,7 +89,7 @@ export function BulkActionBar() {
           <Button
             variant="outlined"
             startIcon={<PersonAdd />}
-            onClick={handleAssign}
+            onClick={() => handleAction('ASSIGN', 'agent-1')}
             disabled={bulkMutation.isPending}
           >
             Assign Selected
@@ -113,4 +98,4 @@ export function BulkActionBar() {
       </Box>
     </Paper>
   );
-} 
+}

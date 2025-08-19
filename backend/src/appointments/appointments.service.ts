@@ -6,61 +6,177 @@ import {
   AppointmentListResponseDto,
 } from './dto/appointment-list-item.dto';
 import { EditAppointmentDto } from './dto/edit-appointment.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AppointmentsService {
   constructor(public prisma: PrismaService) {}
 
   async list(dto: GetAppointmentsDto): Promise<AppointmentListResponseDto> {
-    const { page = 1, pageSize = 10, q } = dto;
+    const { 
+      page = 1, 
+      pageSize = 10, 
+      q,
+      bookedDateFrom,
+      bookedDateTo,
+      scheduledDateFrom,
+      scheduledDateTo,
+      status,
+      paymentStatus,
+      onPanel,
+      doctorName,
+      specialtyName,
+      bookedByName,
+      patientName,
+      hospitalName,
+      minFee,
+      maxFee
+    } = dto;
+    
     const pageNum = Number(page);
     const pageSizeNum = Number(pageSize);
     const skip = (pageNum - 1) * pageSizeNum;
     const take = pageSizeNum;
 
-    const where = {
-      deletedAt: null as Date | null,
+    // Build comprehensive where clause
+    const where: Prisma.AppointmentWhereInput = {
+      deletedAt: null,
+      
+      // Text search
       OR: q
         ? [
-            { patient: { firstName: { contains: q, mode: 'insensitive' } } },
-            { patient: { lastName: { contains: q, mode: 'insensitive' } } },
+            { patient: { firstName: { contains: q } } },
+            { patient: { lastName: { contains: q } } },
             { patient: { phone: { contains: q } } },
             {
               practice: {
-                doctor: { name: { contains: q, mode: 'insensitive' } },
+                doctor: { name: { contains: q } },
               },
             },
             {
               practice: {
-                hospital: { name: { contains: q, mode: 'insensitive' } },
+                hospital: { name: { contains: q } },
               },
             },
           ]
         : undefined,
     };
 
-    const [total, rows] = await this.prisma.$transaction([
+    // Add date filters
+    if (bookedDateFrom || bookedDateTo) {
+      where.createdAt = {};
+      if (bookedDateFrom) {
+        where.createdAt.gte = new Date(bookedDateFrom);
+      }
+      if (bookedDateTo) {
+        where.createdAt.lte = new Date(bookedDateTo);
+      }
+    }
+
+    // Add status filters
+    if (status !== undefined) {
+      where.status = status;
+    }
+    if (paymentStatus !== undefined) {
+      where.paymentStatus = paymentStatus;
+    }
+
+    // Add doctor filters
+    if (onPanel !== undefined || doctorName || specialtyName) {
+      where.practice = {};
+      if (onPanel !== undefined) {
+        where.practice.onPanel = onPanel;
+      }
+      if (doctorName) {
+        where.practice.doctor = {
+          name: { contains: doctorName },
+        };
+      }
+      if (specialtyName) {
+        if (!where.practice.doctor) {
+          where.practice.doctor = {};
+        }
+        where.practice.doctor.mainSpeciality = {
+          name: { contains: specialtyName },
+        };
+      }
+    }
+
+    // Add user filters
+    if (bookedByName) {
+      where.user = {
+        fullName: { contains: bookedByName },
+      };
+    }
+
+    // Add additional filters
+    if (patientName) {
+      where.patient = {
+        OR: [
+          { firstName: { contains: patientName } },
+          { lastName: { contains: patientName } },
+        ],
+      };
+    }
+    if (hospitalName) {
+      if (!where.practice) {
+        where.practice = {};
+      }
+      where.practice.hospital = {
+        name: { contains: hospitalName },
+      };
+    }
+
+    // Add fee filters
+    if (minFee !== undefined || maxFee !== undefined) {
+      where.fee = {};
+      if (minFee !== undefined) {
+        where.fee.gte = minFee;
+      }
+      if (maxFee !== undefined) {
+        where.fee.lte = maxFee;
+      }
+    }
+
+    // Add scheduled date filters (via slot)
+    if (scheduledDateFrom || scheduledDateTo) {
+      where.slot = {};
+      if (scheduledDateFrom) {
+        (where.slot as any).startTs = { gte: new Date(scheduledDateFrom) };
+      }
+      if (scheduledDateTo) {
+        if (!(where.slot as any).startTs) {
+          (where.slot as any).startTs = {};
+        }
+        (where.slot as any).startTs.lte = new Date(scheduledDateTo);
+      }
+    }
+
+    const [total, appointments] = await this.prisma.$transaction([
       this.prisma.appointment.count({ where }),
       this.prisma.appointment.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
         take,
-        select: {
-          id: true,
-          createdAt: true,
-          status: true,
-          paymentStatus: true,
-          fee: true,
-
-          patient: {
+        include: {
+          user: {
             select: {
-              firstName: true,
-              lastName: true,
-              phone: true,
+              fullName: true,
+              userTypeId: true,
             },
           },
-
+          patient: { 
+            select: { 
+              firstName: true, 
+              lastName: true, 
+              phone: true, 
+              source: true,
+              utmSource: true,
+              utmMedium: true,
+              utmCampaign: true,
+            } 
+          },
           practice: {
             select: {
               doctor: {
@@ -81,9 +197,9 @@ export class AppointmentsService {
                   city: true,
                 },
               },
+              onPanel: true, // Include on-panel status
             },
           },
-
           slot: {
             select: {
               startTs: true,
@@ -93,234 +209,281 @@ export class AppointmentsService {
       }),
     ]);
 
-    const data: AppointmentListItemDto[] = rows.map((row) => {
-      const patientName = row.patient
-        ? [row.patient.firstName, row.patient.lastName]
+    const data: AppointmentListItemDto[] = appointments.map((appointment) => {
+      const patientName = appointment.patient
+        ? [appointment.patient.firstName, appointment.patient.lastName]
             .filter(Boolean)
             .join(' ') || null
         : null;
 
+      // Calculate time difference between creation and scheduled time
+      const createdToScheduledTime = appointment.slot?.startTs && appointment.createdAt
+        ? this.calculateTimeDifference(appointment.createdAt, appointment.slot.startTs)
+        : null;
+
+      // Combine UTM parameters for acquisition info
+      const acquisition = appointment.patient?.utmSource
+        ? `${appointment.patient.utmSource}${
+            appointment.patient.utmMedium ? ` / ${appointment.patient.utmMedium}` : ''
+          }${
+            appointment.patient.utmCampaign ? ` / ${appointment.patient.utmCampaign}` : ''
+          }`
+        : null;
+
       return {
-        id: row.id.toString(), // Convert BigInt to string
+        id: appointment.id.toString(),
+        
+        // Patient Info
         patientName,
-        patientPhone: row.patient?.phone ?? null,
+        patientPhone: appointment.patient?.phone ?? null,
 
-        doctorName: row.practice?.doctor?.name ?? null,
-        doctorSpecialty: row.practice?.doctor?.mainSpeciality?.name ?? null,
-        doctorPhone: row.practice?.doctor?.phone ?? null,
+        // Doctor Info
+        doctorName: appointment.practice?.doctor?.name ?? null,
+        doctorPhone: appointment.practice?.doctor?.phone ?? null,
+        doctorSpecialty: appointment.practice?.doctor?.mainSpeciality?.name ?? null,
 
-        hospitalName: row.practice?.hospital?.name ?? null,
-        hospitalAddress: row.practice?.hospital?.address ?? null,
-        hospitalCity: row.practice?.hospital?.city ?? null,
+        // Hospital Info
+        hospitalName: appointment.practice?.hospital?.name ?? null,
+        hospitalAddress: appointment.practice?.hospital?.address ?? null,
+        hospitalCity: appointment.practice?.hospital?.city ?? null,
 
-        scheduledAt: row.slot?.startTs?.toISOString() ?? null,
-        fee: row.fee ?? null,
+        // Appointment Times
+        scheduledAt: appointment.slot?.startTs?.toISOString() ?? null,
+        createdToScheduledTime,
 
-        status: row.status,
-        paymentStatus: row.paymentStatus ?? null,
+        // Fees and Payment
+        fee: appointment.fee ?? null,
+        paymentStatus: appointment.paymentStatus ?? null,
 
-        createdAt: row.createdAt.toISOString(),
+        // Status and Messages
+        status: appointment.status,
+        messageStatus: null, // Needs schema update
+        lastMessagePatient: null, // Needs schema update
+        lastMessageDoctor: null, // Needs schema update
+
+        // Booking Info
+        bookedBy: appointment.user?.fullName ?? null,
+        bookedFrom: appointment.patient?.source ?? null,
+        probability: null, // Needs schema update
+        acquisition,
+
+        // Additional fields for filtering
+        onPanel: appointment.practice?.onPanel ?? false,
+
+        createdAt: appointment.createdAt.toISOString(),
       };
     });
 
     return {
       data,
       meta: {
-        page,
-        pageSize,
+        page: pageNum,
+        pageSize: pageSizeNum,
         total,
-        pages: Math.max(1, Math.ceil(total / pageSize)),
+        pages: Math.max(1, Math.ceil(total / pageSizeNum)),
       },
     };
   }
 
-  async get(id: number) {
+  private calculateTimeDifference(createdAt: Date, scheduledAt: Date): string {
+    const diffInHours = Math.abs(scheduledAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return `${Math.round(diffInHours)} hours`;
+    } else {
+      const days = Math.floor(diffInHours / 24);
+      return `${days} days`;
+    }
+  }
+
+  async get(id: string) {
     const appointment = await this.prisma.appointment.findUnique({
-      where: { id },
+      where: { id: BigInt(id), deletedAt: null },
       include: {
-        patient: true,
+        user: { select: { fullName: true, userTypeId: true } },
+        patient: { 
+          select: { 
+            firstName: true, 
+            lastName: true, 
+            phone: true, 
+            source: true,
+            utmSource: true,
+            utmMedium: true,
+            utmCampaign: true,
+          } 
+        },
         practice: {
-          include: {
+          select: {
             doctor: {
-              include: {
-                mainSpeciality: true,
+              select: {
+                name: true,
+                phone: true,
+                mainSpeciality: { select: { name: true } },
               },
             },
-            hospital: true,
+            hospital: { select: { name: true, address: true, city: true } },
           },
         },
-        slot: true,
+        slot: { select: { startTs: true } },
       },
     });
 
     if (!appointment) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
-
-    const patientName = appointment.patient
-      ? [appointment.patient.firstName, appointment.patient.lastName]
-          .filter(Boolean)
-          .join(' ') || null
-      : null;
 
     return {
       id: appointment.id.toString(),
-      patientName,
+      patientName: appointment.patient
+        ? [appointment.patient.firstName, appointment.patient.lastName]
+            .filter(Boolean)
+            .join(' ') || null
+        : null,
       patientPhone: appointment.patient?.phone ?? null,
-      patientGender: appointment.patient?.gender ?? null,
-      patientCity: appointment.patient?.city ?? null,
-
       doctorName: appointment.practice?.doctor?.name ?? null,
-      doctorSpecialty: appointment.practice?.doctor?.mainSpeciality?.name ?? null,
       doctorPhone: appointment.practice?.doctor?.phone ?? null,
-
+      doctorSpecialty: appointment.practice?.doctor?.mainSpeciality?.name ?? null,
       hospitalName: appointment.practice?.hospital?.name ?? null,
       hospitalAddress: appointment.practice?.hospital?.address ?? null,
       hospitalCity: appointment.practice?.hospital?.city ?? null,
-
       scheduledAt: appointment.slot?.startTs?.toISOString() ?? null,
       fee: appointment.fee ?? null,
-
       status: appointment.status,
       paymentStatus: appointment.paymentStatus ?? null,
-
+      createdAt: appointment.createdAt.toISOString(),
       notes: null, // TODO: Add these fields to schema
       appointmentInstructions: null, // TODO: Add these fields to schema
-
-      createdAt: appointment.createdAt.toISOString(),
+      messageStatus: null, // TODO: Add these fields to schema
+      lastMessagePatient: null, // TODO: Add these fields to schema
+      lastMessageDoctor: null, // TODO: Add these fields to schema
+      probability: null, // TODO: Add these fields to schema
+      createdToScheduledTime: appointment.slot?.startTs && appointment.createdAt
+        ? this.calculateTimeDifference(appointment.createdAt, appointment.slot.startTs)
+        : null,
+      bookedBy: appointment.user?.fullName ?? null,
+      bookedFrom: appointment.patient?.source ?? null,
+      acquisition: appointment.patient?.utmSource
+        ? `${appointment.patient.utmSource}${
+            appointment.patient.utmMedium ? ` / ${appointment.patient.utmMedium}` : ''
+          }${
+            appointment.patient.utmCampaign ? ` / ${appointment.patient.utmCampaign}` : ''
+          }`
+        : null,
+      onPanel: false, // TODO: Add this field to schema
     };
   }
 
-  async edit(id: number, dto: EditAppointmentDto) {
-    // First check if appointment exists
+  async edit(id: string, dto: EditAppointmentDto) {
     const appointment = await this.prisma.appointment.findUnique({
-      where: { id },
+      where: { id: BigInt(id), deletedAt: null },
     });
 
     if (!appointment) {
       throw new NotFoundException(`Appointment with ID ${id} not found`);
     }
 
-    // If changing slot, verify the new slot exists and is available
-    if (dto.slotId) {
-      const existingAppointment = await this.prisma.appointment.findFirst({
-        where: {
-          slotId: dto.slotId,
-          id: { not: id },
-          deletedAt: null,
-        },
-      });
-
-      if (existingAppointment) {
-        throw new Error('Selected slot is already booked');
-      }
-
-      const slot = await this.prisma.appointmentSlot.findUnique({
-        where: { id: dto.slotId },
-      });
-
-      if (!slot) {
-        throw new NotFoundException(`Slot with ID ${dto.slotId} not found`);
-      }
-    }
-
-    // Prepare update data
     const updateData: any = {};
 
-    if (dto.status !== undefined) {
-      updateData.status = dto.status;
-    }
+    if (dto.status !== undefined) updateData.status = dto.status;
+    if (dto.paymentStatus !== undefined) updateData.paymentStatus = dto.paymentStatus;
+    if (dto.fee !== undefined) updateData.fee = dto.fee;
+    if (dto.slotId !== undefined) updateData.slotId = BigInt(dto.slotId);
+    if (dto.notes !== undefined) updateData.notes = dto.notes;
+    if (dto.appointmentInstructions !== undefined) updateData.appointmentInstructions = dto.appointmentInstructions;
 
-    if (dto.paymentStatus !== undefined) {
-      updateData.paymentStatus = dto.paymentStatus;
-    }
+    // Update appointment
+    await this.prisma.appointment.update({
+      where: { id: BigInt(id) },
+      data: updateData,
+    });
 
-    if (dto.fee !== undefined) {
-      updateData.fee = dto.fee;
-    }
-
-    if (dto.slotId !== undefined) {
-      updateData.slotId = dto.slotId;
-    }
-
-    if (dto.notes !== undefined) {
-      updateData.notes = dto.notes;
-    }
-
-    if (dto.appointmentInstructions !== undefined) {
-      updateData.appointmentInstructions = dto.appointmentInstructions;
-    }
-
-    // If patient details are provided, update the patient record
+    // Update patient details if provided
     if (dto.patientDetails) {
-      const { patientId } = appointment;
-      if (patientId) {
-        await this.prisma.patient.update({
-          where: { id: patientId },
-          data: {
-            phone: dto.patientDetails.phone,
-            gender: dto.patientDetails.gender,
-            city: dto.patientDetails.city,
-          },
-        });
+      const patient = await this.prisma.appointment.findUnique({
+        where: { id: BigInt(id) },
+        select: { patientId: true },
+      });
+
+      if (patient?.patientId) {
+        const patientUpdateData: any = {};
+        if (dto.patientDetails.phone !== undefined) patientUpdateData.phone = dto.patientDetails.phone;
+        if (dto.patientDetails.occupation !== undefined) patientUpdateData.occupation = dto.patientDetails.occupation;
+        if (dto.patientDetails.age !== undefined) patientUpdateData.age = dto.patientDetails.age;
+        if (dto.patientDetails.gender !== undefined) patientUpdateData.gender = dto.patientDetails.gender;
+        if (dto.patientDetails.city !== undefined) patientUpdateData.city = dto.patientDetails.city;
+
+        if (Object.keys(patientUpdateData).length > 0) {
+          await this.prisma.patient.update({
+            where: { id: patient.patientId },
+            data: patientUpdateData,
+          });
+        }
       }
     }
 
-    // Update the appointment
-    const updatedAppointment = await this.prisma.appointment.update({
-      where: { id },
-      data: updateData,
-      include: {
-        patient: true,
-        slot: {
-          select: {
-            startTs: true,
-          },
-        },
-        practice: {
-          select: {
-            doctor: {
-              select: {
-                name: true,
-                mainSpeciality: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-            hospital: {
-              select: {
-                name: true,
-                city: true,
-              },
-            },
-          },
-        },
-      },
+    return { message: 'Appointment updated successfully' };
+  }
+
+  async getLookups() {
+    // Get all specialties
+    const specialties = await this.prisma.speciality.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
     });
 
-    const patientName = updatedAppointment.patient
-      ? [updatedAppointment.patient.firstName, updatedAppointment.patient.lastName]
-          .filter(Boolean)
-          .join(' ') || null
-      : null;
+    // Get all doctors with their specialties
+    const doctors = await this.prisma.doctor.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        mainSpeciality: { select: { name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    // Get all patients
+    const patients = await this.prisma.patient.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+      },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    });
+
+    // Get all users (for booked by)
+    const users = await this.prisma.user.findMany({
+      where: { deletedAt: null, isActive: true },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        type: { select: { typeName: true } },
+      },
+      orderBy: { fullName: 'asc' },
+    });
 
     return {
-      id: updatedAppointment.id.toString(),
-      patientName,
-      patientPhone: updatedAppointment.patient?.phone ?? null,
-      patientGender: updatedAppointment.patient?.gender ?? null,
-      patientCity: updatedAppointment.patient?.city ?? null,
-      status: updatedAppointment.status,
-      paymentStatus: updatedAppointment.paymentStatus,
-      fee: updatedAppointment.fee,
-      scheduledAt: updatedAppointment.slot?.startTs?.toISOString() ?? null,
-      doctorName: updatedAppointment.practice?.doctor?.name ?? null,
-      doctorSpecialty: updatedAppointment.practice?.doctor?.mainSpeciality?.name ?? null,
-      hospitalName: updatedAppointment.practice?.hospital?.name ?? null,
-      hospitalCity: updatedAppointment.practice?.hospital?.city ?? null,
-      updatedAt: updatedAppointment.updatedAt.toISOString(),
+      specialties: specialties.map(s => ({ id: s.id, name: s.name })),
+      doctors: doctors.map(d => ({
+        id: d.id.toString(),
+        name: d.name || 'Unknown',
+        specialty: d.mainSpeciality?.name || 'Unknown',
+      })),
+      patients: patients.map(p => ({
+        id: p.id.toString(),
+        name: [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Unknown',
+        phone: p.phone || 'N/A',
+      })),
+      users: users.map(u => ({
+        id: u.id.toString(),
+        name: u.fullName || u.email || 'Unknown',
+        type: u.type.typeName,
+      })),
     };
   }
 }

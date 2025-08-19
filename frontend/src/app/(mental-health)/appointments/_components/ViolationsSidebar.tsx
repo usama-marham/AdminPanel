@@ -15,19 +15,30 @@ export function ViolationsSidebar() {
       <Paper
         elevation={0}
         sx={{
-          width: 320,
-          borderRight: 1,
+          width: '100%',
+          border: 1,
           borderColor: 'divider',
           p: 2,
-          height: '100%',
+          mb: 0,
         }}
       >
-        <Stack spacing={2}>
+        <Typography variant="h6" gutterBottom>
+          Violations & Alerts
+        </Typography>
+        <Stack 
+          direction="row" 
+          spacing={2} 
+          sx={{ 
+            flexWrap: 'wrap',
+            gap: 2,
+          }}
+        >
           {Array.from({ length: 4 }).map((_, i) => (
             <Box
               key={i}
               sx={{
-                height: 80,
+                width: 120,
+                height: 32,
                 bgcolor: 'action.hover',
                 borderRadius: 1,
                 animation: 'pulse 1.5s ease-in-out infinite',
@@ -87,57 +98,42 @@ export function ViolationsSidebar() {
     <Paper
       elevation={0}
       sx={{
-        width: 320,
-        borderRight: 1,
+        width: '100%',
+        border: 1,
         borderColor: 'divider',
         p: 2,
-        height: '100%',
+        mb: 0,
       }}
     >
       <Typography variant="h6" gutterBottom>
-        Violations
+        Violations & Alerts
       </Typography>
-      <Stack spacing={2}>
+      <Stack 
+        direction="row" 
+        spacing={2} 
+        sx={{ 
+          flexWrap: 'wrap',
+          gap: 2,
+          '& > *': { minWidth: 'fit-content' }
+        }}
+      >
         {violations.map((violation) => (
-          <Button
+          <Chip
             key={violation.key}
+            icon={getViolationIcon(violation.severity)}
+            label={`${violation.title} (${violation.count})`}
+            color={getViolationColor(violation.severity)}
             variant="outlined"
             onClick={() => handleViolationClick(violation)}
-            sx={{
-              p: 2,
-              height: 'auto',
-              textAlign: 'left',
-              borderColor: `${getViolationColor(violation.severity)}.main`,
-              '&:hover': {
-                borderColor: `${getViolationColor(violation.severity)}.main`,
-                bgcolor: 'action.hover',
-              },
+            sx={{ 
+              cursor: 'pointer',
+              '&:hover': { 
+                transform: 'translateY(-1px)',
+                boxShadow: 1,
+                transition: 'all 0.2s ease-in-out'
+              }
             }}
-          >
-            <Box sx={{ width: '100%' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {getViolationIcon(violation.severity)}
-                  <Typography variant="body1" component="span">
-                    {violation.title}
-                  </Typography>
-                </Box>
-                <Chip
-                  size="small"
-                  label={violation.count}
-                  color={getViolationColor(violation.severity)}
-                />
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {violation.description}
-              </Typography>
-              {violation.elapsed && (
-                <Typography variant="body2" color="error">
-                  {violation.elapsed} overdue
-                </Typography>
-              )}
-            </Box>
-          </Button>
+          />
         ))}
       </Stack>
     </Paper>

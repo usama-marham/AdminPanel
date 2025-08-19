@@ -16,6 +16,14 @@ interface AppointmentListItemDto {
   status: number;
   paymentStatus: number | null;
   createdAt: string;
+  createdToScheduledTime: string | null;
+  bookedBy: string | null;
+  bookedFrom: string | null;
+  probability: string | null;
+  acquisition: string | null;
+  messageStatus: number | null;
+  lastMessagePatient: string | null;
+  lastMessageDoctor: string | null;
 }
 
 interface AppointmentListResponseDto {
@@ -31,12 +39,14 @@ interface AppointmentListResponseDto {
 const API_BASE_URL = 'http://localhost:3333/v1';
 
 interface EditAppointmentData {
+  id?: string;
   status?: string;
   paymentStatus?: string;
   fee?: number;
   slotId?: number;
   notes?: string;
   appointmentInstructions?: string;
+  probability?: string;
   patientDetails?: {
     phone?: string;
     occupation?: string;
@@ -73,135 +83,144 @@ interface EditAppointmentApiData {
   slotId?: number;
   notes?: string;
   appointmentInstructions?: string;
-  patientDetails?: {
-    phone?: string;
-    occupation?: string;
-    age?: string;
-    gender?: string;
-    city?: string;
-  };
-  paInfo?: {
-    hospital?: string;
-    name?: string;
-    number?: string;
-  };
-  flags?: {
-    willFixNextTime?: boolean;
-    isMarkFollowUp?: boolean;
-    isDirectBooking?: boolean;
-    isAgentSpecial?: boolean;
-    isWhatsappCreated?: boolean;
-    isMarkDoctorAsRed?: boolean;
-    isProcedure?: boolean;
-  };
-  messageSettings?: {
-    sendToPatient?: boolean;
-    sendToDoctor?: boolean;
-    sendToAssistant?: boolean;
-    sendVoiceToPatient?: boolean;
-  };
+  probability?: string;
+  patientDetails?: EditAppointmentData['patientDetails'];
+  paInfo?: EditAppointmentData['paInfo'];
+  flags?: EditAppointmentData['flags'];
+  messageSettings?: EditAppointmentData['messageSettings'];
 }
 
 const appointmentsApi = {
   async get(id: string) {
-    console.log('Making get request to:', `${API_BASE_URL}/appointments/${id}`);
-    const response = await axios.get(`${API_BASE_URL}/appointments/${id}`);
-    
-    // Transform the backend response to match frontend format
-    const item = response.data;
-    return {
-      id: item.id,
-      patient: {
-        name: item.patientName || 'N/A',
-        phone: item.patientPhone || 'N/A',
-        type: 'Regular',
-      },
-      doctor: {
-        name: item.doctorName || 'N/A',
-        specialty: item.doctorSpecialty || 'N/A',
-        phone: item.doctorPhone || 'N/A',
-      },
-      hospital: {
-        name: item.hospitalName || 'N/A',
-        location: `${item.hospitalAddress || ''}, ${item.hospitalCity || ''}`.trim() || 'N/A',
-      },
-      time: item.scheduledAt || new Date().toISOString(),
-      status: mapStatusToFrontend(item.status),
-      paymentStatus: mapPaymentStatusToFrontend(item.paymentStatus),
-      feePKR: item.fee || 0,
-      createdAt: item.createdAt,
-      notes: item.notes || '',
-      appointmentInstructions: item.appointmentInstructions || '',
-      flags: item.flags || {
-        willFixNextTime: false,
-        isMarkFollowUp: false,
-        isDirectBooking: false,
-        isAgentSpecial: false,
-        isWhatsappCreated: false,
-        isMarkDoctorAsRed: false,
-        isProcedure: false,
-      },
-      messageSettings: item.messageSettings || {
-        sendToPatient: true,
-        sendToDoctor: true,
-        sendToAssistant: true,
-        sendVoiceToPatient: true,
-      },
-    };
+    try {
+      console.log('Fetching appointment:', id);
+      const response = await axios.get(`${API_BASE_URL}/appointments/${id}`);
+      console.log('Appointment response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch appointment:', error);
+      throw error;
+    }
   },
 
-  async edit(id: string, data: EditAppointmentData) {
-    console.log('Making edit request to:', `${API_BASE_URL}/appointments/${id}`);
+  async getLookups() {
+    try {
+      console.log('Fetching lookups');
+      const response = await axios.get(`${API_BASE_URL}/appointments/lookups`);
+      console.log('Lookups response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch lookups:', error);
+      throw error;
+    }
+  },
+
+  async edit(data: EditAppointmentData) {
+    if (!data.id) throw new Error('Appointment ID is required');
+    console.log('Making edit request to:', `${API_BASE_URL}/appointments/${data.id}`);
     console.log('With data:', data);
-    
-    // Convert string status values to numbers for the API
     const apiData: EditAppointmentApiData = {
       ...data,
       status: data.status ? mapStatusToBackend(data.status) : undefined,
       paymentStatus: data.paymentStatus ? mapPaymentStatusToBackend(data.paymentStatus) : undefined,
     };
-    
-    const response = await axios.patch(`${API_BASE_URL}/appointments/${id}`, apiData);
+    const response = await axios.patch(`${API_BASE_URL}/appointments/${data.id}`, apiData);
     return response.data;
   },
 
-  async list(params: { page?: number; pageSize?: number; q?: string }) {
-    console.log('Making API request to:', `${API_BASE_URL}/appointments`);
-    console.log('With params:', params);
-    
-    const response = await axios.get<AppointmentListResponseDto>(`${API_BASE_URL}/appointments`, {
-      params: {
-        page: params.page || 1,
-        pageSize: params.pageSize || 50,
-        q: params.q,
-      },
-    });
-    
-    // Transform the backend response to match frontend format
-    return {
-      rows: response.data.data.map(item => ({
-        id: item.id,
-        patient: {
-          name: item.patientName || 'N/A',
-          phone: item.patientPhone || 'N/A',
-        },
-        doctor: {
-          name: item.doctorName || 'N/A',
-          specialty: item.doctorSpecialty || 'N/A',
-          phone: item.doctorPhone || 'N/A',
-        },
-        hospital: {
-          name: item.hospitalName || 'N/A',
-          location: `${item.hospitalAddress || ''}, ${item.hospitalCity || ''}`.trim() || 'N/A',
-        },
-        time: item.scheduledAt || new Date().toISOString(),
-        feePKR: item.fee || 0,
-        appointmentStatus: mapStatusToFrontend(item.status),
-        paymentStatus: mapPaymentStatusToFrontend(item.paymentStatus),
-        createdAt: item.createdAt,
-      })),
-      total: response.data.meta.total,
-    };
+  async list(params: {
+    page?: number;
+    pageSize?: number;
+    q?: string;
+    bookedDateFrom?: string;
+    bookedDateTo?: string;
+    scheduledDateFrom?: string;
+    scheduledDateTo?: string;
+    status?: string;
+    paymentStatus?: string;
+    onPanel?: string;
+    doctorName?: string;
+    specialtyName?: string;
+    bookedByName?: string;
+    patientName?: string;
+    hospitalName?: string;
+    minFee?: string;
+    maxFee?: string;
+  }) {
+    try {
+      console.log('Fetching appointments with params:', params);
+      
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      
+      if (params.page) queryParams.append('page', params.page.toString());
+      if (params.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+      if (params.q) queryParams.append('q', params.q);
+      
+      // Date filters
+      if (params.bookedDateFrom) queryParams.append('bookedDateFrom', params.bookedDateFrom);
+      if (params.bookedDateTo) queryParams.append('bookedDateTo', params.bookedDateTo);
+      if (params.scheduledDateFrom) queryParams.append('scheduledDateFrom', params.scheduledDateFrom);
+      if (params.scheduledDateTo) queryParams.append('scheduledDateTo', params.scheduledDateTo);
+      
+      // Status filters
+      if (params.status) queryParams.append('status', params.status);
+      if (params.paymentStatus) queryParams.append('paymentStatus', params.paymentStatus);
+      if (params.onPanel) queryParams.append('onPanel', params.onPanel);
+      
+      // Name-based filters
+      if (params.doctorName) queryParams.append('doctorName', params.doctorName);
+      if (params.specialtyName) queryParams.append('specialtyName', params.specialtyName);
+      if (params.bookedByName) queryParams.append('bookedByName', params.bookedByName);
+      if (params.patientName) queryParams.append('patientName', params.patientName);
+      if (params.hospitalName) queryParams.append('hospitalName', params.hospitalName);
+      
+      // Fee filters
+      if (params.minFee) queryParams.append('minFee', params.minFee);
+      if (params.maxFee) queryParams.append('maxFee', params.maxFee);
+      
+      const url = `${API_BASE_URL}/appointments?${queryParams.toString()}`;
+      console.log('Making request to:', url);
+      
+      const response = await axios.get(url);
+      console.log('Appointments response:', response.data);
+      
+      // Transform the response to match frontend expectations
+      const transformedData = {
+        data: response.data.data.map((appointment: any) => ({
+          ...appointment,
+          // Ensure all required fields are present
+          patientName: appointment.patientName || 'Unknown',
+          patientPhone: appointment.patientPhone || 'N/A',
+          doctorName: appointment.doctorName || 'Unknown',
+          doctorPhone: appointment.doctorPhone || 'N/A',
+          doctorSpecialty: appointment.doctorSpecialty || 'N/A',
+          hospitalName: appointment.hospitalName || 'Unknown',
+          hospitalAddress: appointment.hospitalAddress || 'N/A',
+          hospitalCity: appointment.hospitalCity || 'N/A',
+          scheduledAt: appointment.scheduledAt || null,
+          fee: appointment.fee || 0,
+          status: appointment.status || 1,
+          paymentStatus: appointment.paymentStatus || null,
+          createdAt: appointment.createdAt || new Date().toISOString(),
+          createdToScheduledTime: appointment.createdToScheduledTime || null,
+          bookedBy: appointment.bookedBy || 'Unknown',
+          bookedFrom: appointment.bookedFrom || 'N/A',
+          probability: appointment.probability || null,
+          acquisition: appointment.acquisition || 'N/A',
+          messageStatus: appointment.messageStatus || null,
+          lastMessagePatient: appointment.lastMessagePatient || null,
+          lastMessageDoctor: appointment.lastMessageDoctor || null,
+          onPanel: appointment.onPanel || false,
+        })),
+        meta: response.data.meta,
+      };
+      
+      return transformedData;
+    } catch (error) {
+      console.error('Failed to fetch appointments:', error);
+      throw error;
+    }
   },
 };
 
@@ -226,8 +245,8 @@ export const appointmentStatusMap = {
 } as const;
 
 export const paymentStatusMap = {
-  'Unpaid': 1,
-  'Paid': 2,
+  'No': 1,
+  'Yes': 2,
   'Evidence Received': 3,
   'Pending': 4,
   'To Be Refund': 5,
@@ -239,7 +258,8 @@ function mapStatusToFrontend(status: number): string {
 }
 
 function mapPaymentStatusToFrontend(status: number | null): string {
-  return Object.entries(paymentStatusMap).find(([_, value]) => value === status)?.[0] || 'Unpaid';
+  if (status === null) return 'No';
+  return Object.entries(paymentStatusMap).find(([_, value]) => value === status)?.[0] || 'No';
 }
 
 function mapStatusToBackend(status: string): number {
@@ -247,11 +267,10 @@ function mapStatusToBackend(status: string): number {
 }
 
 function mapPaymentStatusToBackend(status: string): number {
-  return paymentStatusMap[status as keyof typeof paymentStatusMap] || paymentStatusMap['Unpaid'];
+  return paymentStatusMap[status as keyof typeof paymentStatusMap] || paymentStatusMap['No'];
 }
 
 export type MetricKey = 'FIVE_STAR_RATE' | 'LOST_PATIENTS' | 'PENDING_CONFIRMATION' | 'SLA_BREACHES' | 'AGENT_EFFICIENCY';
-
 export type ViolationKey = 'TIME_CONFIRMATION_ELAPSED' | 'NOT_CONFIRMED_BY_DOCTOR' | 'TIME_RESCHEDULED' | 'HARMONY_CALL_NOT_DONE';
 
 export interface ViolationItem {
@@ -332,7 +351,7 @@ const mockMetrics: HeaderMetric[] = [
 export function useHeaderMetrics() {
   return useQuery({
     queryKey: ['headerMetrics'],
-    queryFn: () => mockMetrics, // TODO: Replace with API call
+    queryFn: () => mockMetrics,
   });
 }
 
@@ -372,7 +391,7 @@ const mockViolations: ViolationItem[] = [
 export function useViolations() {
   return useQuery({
     queryKey: ['violations'],
-    queryFn: () => mockViolations, // TODO: Replace with API call
+    queryFn: () => mockViolations,
   });
 }
 
@@ -384,48 +403,19 @@ export function useAppointment(id: string) {
   });
 }
 
-// Bulk action types
-type BulkActionType = 'REMIND' | 'ESCALATE_CALL' | 'ASSIGN';
-
-interface BulkActionInput {
-  action: BulkActionType;
-  ids: string[];
-  assigneeId?: string;
-}
-
-interface BulkActionResult {
-  success: boolean;
-  message: string;
-  updatedCount: number;
-}
-
-// Mock bulk action API call
-async function mockBulkAction(input: BulkActionInput): Promise<BulkActionResult> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  return {
-    success: true,
-    message: `Successfully processed ${input.ids.length} appointments`,
-    updatedCount: input.ids.length,
-  };
-}
-
-export function useEditAppointment(id: string) {
+export function useEditAppointment() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data: EditAppointmentData) => {
       console.log('Sending edit request with data:', data);
-      return appointmentsApi.edit(id, data);
+      return appointmentsApi.edit(data);
     },
     onSuccess: (response) => {
       console.log('Edit successful, response:', response);
-      // Invalidate all appointment-related queries
       console.log('Invalidating queries...');
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['appointment'] });
-      // Force a refetch of the appointments list
       console.log('Forcing refetch...');
       queryClient.refetchQueries({ queryKey: ['appointments'] });
     },
@@ -435,35 +425,73 @@ export function useEditAppointment(id: string) {
   });
 }
 
+// Types for bulk actions
+export type BulkActionType = 'REMIND' | 'ESCALATE_CALL' | 'ASSIGN';
+
+export interface BulkActionInput {
+  action: BulkActionType;
+  ids: string[];
+  assigneeId?: string;
+}
+
+export interface BulkActionResult {
+  success: boolean;
+  message: string;
+  updatedCount: number;
+}
+
+// Mock bulk action API call
+async function mockBulkAction(input: BulkActionInput): Promise<BulkActionResult> {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return {
+    success: true,
+    message: `Successfully processed ${input.ids.length} appointments`,
+    updatedCount: input.ids.length,
+  };
+}
+
 export function useBulkActions() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<BulkActionResult, Error, BulkActionInput>({
     mutationFn: (input: BulkActionInput) => mockBulkAction(input),
     onSuccess: () => {
-      // Invalidate appointments list to trigger refetch
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
     },
   });
 }
 
-export function useAppointments(params: UseAppointmentsParams = {}) {
+export function useAppointments(params: {
+  tab: string;
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  bookedDateFrom?: string;
+  bookedDateTo?: string;
+  scheduledDateFrom?: string;
+  scheduledDateTo?: string;
+  status?: string;
+  paymentStatus?: string;
+  onPanel?: string;
+  doctorName?: string;
+  specialtyName?: string;
+  bookedByName?: string;
+  patientName?: string;
+  hospitalName?: string;
+  minFee?: string;
+  maxFee?: string;
+}) {
   return useQuery({
     queryKey: ['appointments', params],
-    queryFn: async () => {
-      try {
-        console.log('Fetching appointments with params:', params);
-        const result = await appointmentsApi.list({
-          page: params.page,
-          pageSize: params.pageSize,
-          q: params.q,
-        });
-        console.log('API response:', result);
-        return result;
-      } catch (error) {
-        console.error('Failed to fetch appointments:', error);
-        throw error;
-      }
-    },
+    queryFn: () => appointmentsApi.list(params),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useLookups() {
+  return useQuery({
+    queryKey: ['lookups'],
+    queryFn: () => appointmentsApi.getLookups(),
+    staleTime: 10 * 60 * 1000, // 10 minutes
   });
 }

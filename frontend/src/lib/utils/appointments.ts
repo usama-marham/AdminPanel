@@ -22,13 +22,13 @@ export function formatPKR(amount: number): string {
 }
 
 // Status helpers
-export function getStatusColor(status: string): string {
+export function getStatusColor(status: string): 'success' | 'error' | 'warning' | 'info' | 'primary' | 'default' {
   switch (status) {
     case 'In Process':
     case 'Scheduled':
-      return 'primary.main';
+      return 'primary';
     case 'Showed up':
-      return 'success.main';
+      return 'success';
     case 'Cancelled':
     case 'Doctor Not Responding':
     case 'Doctor Not Available':
@@ -37,33 +37,33 @@ export function getStatusColor(status: string): string {
     case 'Doctor - Not Showed Up':
     case 'Not Showed-up By Doctor':
     case 'Not Showed up-Billing':
-      return 'error.main';
+      return 'error';
     case 'Data Incorrect':
     case 'Case Declined':
     case 'Powered Off':
-      return 'warning.main';
+      return 'warning';
     case 'Inquiry':
     case 'Other':
     case 'Duplicate':
-      return 'info.main';
+      return 'info';
     default:
-      return 'text.primary';
+      return 'default';
   }
 }
 
-export function getPaymentStatusColor(status: string): string {
+export function getPaymentStatusColor(status: string): 'success' | 'error' | 'warning' | 'info' | 'default' {
   switch (status) {
     case 'Paid':
     case 'Refunded':
-      return 'success.main';
+      return 'success';
     case 'Unpaid':
-      return 'error.main';
+      return 'error';
     case 'Evidence Received':
     case 'Pending':
-      return 'warning.main';
+      return 'warning';
     case 'To Be Refund':
-      return 'info.main';
+      return 'info';
     default:
-      return 'text.primary';
+      return 'default';
   }
 }

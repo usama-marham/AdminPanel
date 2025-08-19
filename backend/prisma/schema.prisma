@@ -39,10 +39,31 @@ enum ReviewExperience {
  * =========================
  */
 
+
+/*
+(1,  'IN_PROCESS',               )
+(2,  'SCHEDULED',                ),
+(3,  'CANCELLED',                ),
+(4,  'DOCTOR_NOT_RESPONDING',    ),
+(5,  'DATA_INCORRECT',           ),
+(6,  'DOCTOR_NOT_AVAILABLE',     ),
+(7,  'INQUIRY',                  ),
+(8,  'SHOWED_UP',                ),
+(9,  'OTHER',                    ),
+(10, 'PATIENT_NO_SHOW',          ),
+(11, 'PATIENT_NOT_RESPONDING',   ),
+(12, 'DOCTOR_NO_SHOW',           ),
+(13, 'CASE_DECLINED',            ),
+(14, 'DOCTOR_NO_SHOW_ALT',       ),
+(15, 'POWERED_OFF',              ),
+(16, 'NO_SHOW_BILLING',          ),
+(17, 'DUPLICATE',                ),
+(18, 'CANCELLED_BY_DOCTOR',      );
+*/
 model AppointmentStatus {
-  id          Int       @id @map("id") @db.TinyInt
+  id          Int       @id @map("id") @db.TinyInt   //As shown above in the comment
   title       String    @db.VarChar(100)
-  statusKey   String    @unique @map("status_key") @db.VarChar(50)
+  statusKey   String    @unique @map("status_key") @db.VarChar(50)  //IN_PROCESS for title In Process
   description String?   @db.Text
   isActive    Boolean   @default(true) @map("is_active")
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -52,10 +73,12 @@ model AppointmentStatus {
   @@map("appointment_statuses")
 }
 
+
+// Professor, Registrar, etc. Category is more like a title, and speciality is more specific like physician, psychologist etc.
 model Category {
   id                          Int       @id @default(autoincrement())
   name                        String    @db.VarChar(255)
-  points                      Int       @default(0) @db.TinyInt
+  points                      Int       @default(0) @db.TinyInt   //What is this?
   isOnboardingPaymentRequired Boolean   @default(false) @map("is_onboarding_payment_required")
   createdAt                   DateTime  @default(now()) @map("created_at")
   updatedAt                   DateTime? @map("updated_at")
@@ -66,18 +89,19 @@ model Category {
   @@map("categories")
 }
 
+//Main speciality od a Doctor
 model Speciality {
   id             Int       @id @default(autoincrement())
   name           String    @db.VarChar(255)
   slug           String    @unique @db.VarChar(255)
-  parentId       Int?      @map("parent_id")
-  position       Int?      @default(0)
-  isScrapped     Int?      @default(0) @map("is_scrapped") @db.TinyInt
+  parentId       Int?      @map("parent_id") // What is this?
+  position       Int?      @default(0) // What is this?
+  isScrapped     Int?      @default(0) @map("is_scrapped") @db.TinyInt // What is this?
   displayContent Json?     @map("display_content")
-  media          Json?
-  seo            Json?
-  faqs           Json?
-  actions        Json?
+  media          Json?    // What is this?
+  seo            Json?  // What is this?
+  faqs           Json?   // What is this?
+  actions        Json?  // What is this?
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime? @map("updated_at")
   deletedAt      DateTime? @map("deleted_at")
@@ -181,7 +205,7 @@ model DoctorPractice {
   profileSlug                String?   @map("profile_slug")
   consultationFee            Int?      @map("consultation_fee")
   discountFee                Int?      @map("discount_fee")
-  appointmentPolicy          Json?     @map("appointment_policy")
+  appointmentPolicy          Json?     @map("appointment_policy") //What is this?
   patientsPerHour            Int?      @map("patients_per_hour")
   avgTimePerPatientMinutes   Int?      @map("avg_time_per_patient_minutes")
   onPanel                    Boolean   @default(false) @map("on_panel")
@@ -230,7 +254,7 @@ model AppointmentSlot {
   endTs            DateTime  @map("end_ts")
   slotStatus       Int       @default(0) @map("slot_status")
   holdUntil        DateTime? @map("hold_until")
-  slotVersion      Int       @default(1) @map("slot_version")
+  slotVersion      Int       @default(1) @map("slot_version")  //What is this?
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
   deletedAt        DateTime? @map("deleted_at")
@@ -282,8 +306,8 @@ model Appointment {
 
 model Review {
   id          BigInt            @id @default(autoincrement())
-  serviceId   BigInt            @map("service_id")
-  serviceType ReviewServiceType @map("service_type")
+  serviceId   BigInt            @map("service_id")   //What is this?
+  serviceType ReviewServiceType @map("service_type") //What is this?
   doctorId    BigInt?           @map("doctor_id")
 
   // named relation + FK
@@ -291,7 +315,7 @@ model Review {
 
   rating            Int               @db.TinyInt
   reviewText        String?           @map("review_text")
-  isPinned          Boolean           @default(false) @map("is_pinned")
+  isPinned          Boolean           @default(false) @map("is_pinned")  //What is this?
   publishedBy       BigInt            @map("published_by")
   publishedAt       DateTime?         @map("published_at")
   overallExperience ReviewExperience? @map("overall_experience")
@@ -322,7 +346,7 @@ model User {
   phoneVerified Boolean   @default(false) @map("phone_verified")
   userTypeId    Int       @map("user_type_id") @db.SmallInt
   isActive      Boolean   @default(true) @map("is_active")
-  isSystem      Boolean   @default(false) @map("is_system")
+  isSystem      Boolean   @default(false) @map("is_system")   //What is this?
   doctorId      BigInt?   @map("doctor_id")
   lastSeenAt    DateTime? @map("last_seen_at") @db.DateTime(0)
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -334,7 +358,7 @@ model User {
   patients Patient[]
   apps     Appointment[]
 
-  @@index([email], map: "idx_users_email")
+  @@index([email], map: "idx_users_email")//What is this?
   @@index([username], map: "idx_users_username")
   @@index([phone], map: "idx_users_phone")
   @@index([userTypeId], map: "idx_users_user_type")
@@ -352,9 +376,9 @@ model UserType {
 
 model Patient {
   id                  BigInt    @id @default(autoincrement())
-  accountOwnerId      BigInt    @map("account_owner_id")
-  uuid                String    @default(uuid()) @db.Char(36)
-  medicalRecordNumber String?   @unique @map("medical_record_number") @db.VarChar(64)
+  accountOwnerId      BigInt    @map("account_owner_id")  //What is this?
+  uuid                String    @default(uuid()) @db.Char(36)  //Why is it separate?
+  medicalRecordNumber String?   @unique @map("medical_record_number") @db.VarChar(64) //What is this?
   firstName           String    @map("first_name") @db.VarChar(120)
   lastName            String    @map("last_name") @db.VarChar(120)
   fullName            String?   @map("full_name") @db.VarChar(255)
@@ -370,20 +394,20 @@ model Patient {
   postalCode          String?   @map("postal_code") @db.VarChar(32)
   country             String?   @db.VarChar(64)
   emergencyContacts   Json      @default("{}") @map("emergency_contacts")
-  insuranceProvider   String?   @map("insurance_provider") @db.VarChar(255)
-  insuranceNumber     String?   @map("insurance_number") @db.VarChar(128)
-  insuranceValidTill  DateTime? @map("insurance_valid_till") @db.Date
+  insuranceProvider   String?   @map("insurance_provider") @db.VarChar(255)  //What is this?
+  insuranceNumber     String?   @map("insurance_number") @db.VarChar(128)  //What is this?
+  insuranceValidTill  DateTime? @map("insurance_valid_till") @db.Date       //What is this?
   consentEmail        Boolean   @default(true) @map("consent_email")
   consentSms          Boolean   @default(true) @map("consent_sms")
-  firstSeenAt         DateTime? @map("first_seen_at")
-  source              String?   @db.VarChar(128)
-  utmSource           String?   @map("utm_source") @db.VarChar(128)
-  utmMedium           String?   @map("utm_medium") @db.VarChar(128)
-  utmCampaign         String?   @map("utm_campaign") @db.VarChar(128)
+  firstSeenAt         DateTime? @map("first_seen_at")       //What is this?
+  source              String?   @db.VarChar(128)               //What is this?
+  utmSource           String?   @map("utm_source") @db.VarChar(128)     //What is this?
+  utmMedium           String?   @map("utm_medium") @db.VarChar(128)     //What is this?
+  utmCampaign         String?   @map("utm_campaign") @db.VarChar(128)    //What is this?
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
   deletedAt           DateTime? @map("deleted_at")
-  lastVisitAt         DateTime? @map("last_visit_at")
+  lastVisitAt         DateTime? @map("last_visit_at")         //What is this?
 
   owner User          @relation(fields: [accountOwnerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   apps  Appointment[]
