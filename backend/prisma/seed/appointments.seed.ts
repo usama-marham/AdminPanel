@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { Appointment, AppointmentSlot, Patient } from '@prisma/client';
 import { SeederContext } from './types';
-import { APPT_STATUS, PAYMENT_STATUS, SLOT_STATUS, pick } from './constants';
+import { APPT_STATUS, PAYMENT_STATUS, APPOINTMENT_PROBABILITY, SLOT_STATUS, pick } from './constants';
 
 interface SeedAppointmentsOptions {
   slots: AppointmentSlot[];
@@ -31,16 +31,24 @@ export async function seedAppointments(
     const patient = pick(patients);
     const fee = faker.number.int({ min: 1500, max: 6000 });
     const discount = faker.number.int({ min: 0, max: 1000 });
+    const probability = pick([
+      APPOINTMENT_PROBABILITY.CONFIRMED,
+      APPOINTMENT_PROBABILITY.MAY_BE,
+      APPOINTMENT_PROBABILITY.NO_RESPONSE,
+    ]);
 
     const appointment = await prisma.appointment.create({
       data: {
-        slotId: s.id,
         doctorPracticeId: s.doctorPracticeId,
         patientId: patient.id,
-        status,
+        userId: patient.userId,
+        appointmentStatusId: status,
+        appointmentTypeId: 1, // Default to CONSULTATION
+        probabilityId: probability,
+        paymentStatusId: status === APPT_STATUS.SHOWED_UP ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.UNPAID,
         fee,
         discount,
-        paymentStatus: status === APPT_STATUS.SHOWED_UP ? PAYMENT_STATUS.PAID : PAYMENT_STATUS.UNPAID,
+        appointmentDateTime: s.startTs,
       },
     });
     appointments.push(appointment);

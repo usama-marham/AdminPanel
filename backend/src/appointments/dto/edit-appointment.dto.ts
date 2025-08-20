@@ -1,52 +1,26 @@
 import { Type } from 'class-transformer';
 import {
-  IsEnum,
-  IsInt,
-  IsNumber,
   IsOptional,
   IsPositive,
   IsString,
   Min,
+  IsNumber,
+  IsBoolean,
+  IsDateString,
 } from 'class-validator';
-
-// These should match the frontend status values
-export enum AppointmentStatus {
-  IN_PROCESS = 1,
-  SCHEDULED = 2,
-  CANCELLED = 3,
-  DOCTOR_NOT_RESPONDING = 4,
-  DATA_INCORRECT = 5,
-  DOCTOR_NOT_AVAILABLE = 6,
-  INQUIRY = 7,
-  SHOWED_UP = 8,
-  OTHER = 9,
-  PATIENT_NOT_SHOWED_UP = 10,
-  PATIENT_NOT_RESPONDING = 11,
-  DOCTOR_NOT_SHOWED_UP = 12,
-  CASE_DECLINED = 13,
-  NOT_SHOWED_UP_BY_DOCTOR = 14,
-  POWERED_OFF = 15,
-  NOT_SHOWED_UP_BILLING = 16,
-  DUPLICATE = 17,
-}
-
-export enum PaymentStatus {
-  UNPAID = 1,
-  PAID = 2,
-  EVIDENCE_RECEIVED = 3,
-  PENDING = 4,
-  TO_BE_REFUND = 5,
-  REFUNDED = 6,
-}
 
 export class EditAppointmentDto {
   @IsOptional()
-  @IsEnum(AppointmentStatus)
-  status?: AppointmentStatus;
+  @IsString()
+  appointmentStatus?: string; // String value like "Scheduled", "Cancelled", etc.
 
   @IsOptional()
-  @IsEnum(PaymentStatus)
-  paymentStatus?: PaymentStatus;
+  @IsString()
+  paymentStatus?: string; // String value like "Paid", "Unpaid", etc.
+
+  @IsOptional()
+  @IsString()
+  probability?: string; // String value like "Confirmed", "May Be", etc.
 
   @IsOptional()
   @IsNumber()
@@ -55,18 +29,24 @@ export class EditAppointmentDto {
   fee?: number;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @IsPositive()
-  slotId?: number; // To reschedule to a different slot
-
-  @IsOptional()
   @IsString()
-  notes?: string; // Optional notes about the edit
+  notes?: string;
 
   @IsOptional()
   @IsString()
   appointmentInstructions?: string;
+
+  @IsOptional()
+  @IsDateString()
+  appointmentDateTime?: string; // ISO date string for rescheduling
+
+  @IsOptional()
+  @IsBoolean()
+  onPanel?: boolean; // Update panel status
+
+  @IsOptional()
+  @IsBoolean()
+  directBookingAllowed?: boolean; // Update direct booking permission
 
   @IsOptional()
   patientDetails?: {
@@ -74,6 +54,23 @@ export class EditAppointmentDto {
     occupation?: string;
     age?: string;
     gender?: string;
+    city?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+
+  @IsOptional()
+  doctorDetails?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
+
+  @IsOptional()
+  hospitalDetails?: {
+    name?: string;
+    phone?: string;
+    address?: string;
     city?: string;
   };
 } 

@@ -5,9 +5,9 @@ const API_BASE_URL = 'http://localhost:3333/v1';
 
 export const appointmentsApi = {
   async list(params: { page?: number; pageSize?: number; q?: string }) {
-    console.log('Making API request to:', `${API_BASE_URL}/v1/appointments`);
+    console.log('Making API request to:', `${API_BASE_URL}/appointments`);
     console.log('With params:', params);
-    const response = await axios.get<AppointmentListResponseDto>(`${API_BASE_URL}/v1/appointments`, {
+    const response = await axios.get<AppointmentListResponseDto>(`${API_BASE_URL}/appointments`, {
       params: {
         page: params.page || 1,
         pageSize: params.pageSize || 50,
@@ -34,46 +34,36 @@ export const appointmentsApi = {
         },
         time: item.scheduledAt || new Date().toISOString(),
         feePKR: item.fee || 0,
-        appointmentStatus: mapStatusToFrontend(item.status),
-        paymentStatus: mapPaymentStatusToFrontend(item.paymentStatus),
+        appointmentStatus: item.appointmentStatus || 'N/A', // Use string value directly
+        paymentStatus: item.paymentStatus || 'N/A', // Use string value directly
         createdAt: item.createdAt,
       })),
       total: response.data.meta.total,
     };
   },
+
+  async get(id: string) {
+    console.log('Making API request to:', `${API_BASE_URL}/appointments/${id}`);
+    const response = await axios.get(`${API_BASE_URL}/appointments/${id}`);
+    return response.data;
+  },
+
+  async edit(data: any) {
+    console.log('Making edit API request to:', `${API_BASE_URL}/appointments/${data.id}`);
+    console.log('With data:', data);
+    
+    // Remove id from request body since it's in the URL
+    const { id, ...requestData } = data;
+    
+    const response = await axios.patch(`${API_BASE_URL}/appointments/${id}`, requestData);
+    return response.data;
+  },
+
+  async getLookups() {
+    console.log('Making API request to:', `${API_BASE_URL}/appointments/lookups`);
+    const response = await axios.get(`${API_BASE_URL}/appointments/lookups`);
+    return response.data;
+  },
 };
 
-function mapStatusToFrontend(status: number): string {
-  const statusMap: Record<number, string> = {
-    1: 'In Process',
-    2: 'Scheduled',
-    3: 'Cancelled',
-    4: 'Doctor Not Responding',
-    5: 'Data Incorrect',
-    6: 'Doctor Not Available',
-    7: 'Inquiry',
-    8: 'Showed up',
-    9: 'Other',
-    10: 'Patient - Not Showed up',
-    11: 'Patient Not Responding',
-    12: 'Doctor - Not Showed Up',
-    13: 'Case Declined',
-    14: 'Not Showed-up By Doctor',
-    15: 'Powered Off',
-    16: 'Not Showed up-Billing',
-    17: 'Duplicate',
-  };
-  return statusMap[status] || 'Other';
-}
-
-function mapPaymentStatusToFrontend(status: number | null): string {
-  const statusMap: Record<number, string> = {
-    1: 'Unpaid',
-    2: 'Paid',
-    3: 'Evidence Received',
-    4: 'Pending',
-    5: 'To Be Refund',
-    6: 'Refunded',
-  };
-  return statusMap[status || 1] || 'Unpaid';
-}
+// Old mapping functions removed - backend now returns string values directly

@@ -11,19 +11,22 @@ interface AppointmentListItemDto {
   hospitalName: string | null;
   hospitalAddress: string | null;
   hospitalCity: string | null;
+  hospitalPhone: string | null; // New field
   scheduledAt: string | null;
   fee: number | null;
-  status: number;
-  paymentStatus: number | null;
+  appointmentStatus: string | null; // Renamed from status, now contains title
+  paymentStatus: string | null; // Now contains title instead of ID
   createdAt: string;
   createdToScheduledTime: string | null;
-  bookedBy: string | null;
+  bookedBy: string | null; // Now contains user type (Admin, Patient, Agent)
   bookedFrom: string | null;
-  probability: string | null;
+  probability: string | null; // Now contains name instead of ID
   acquisition: string | null;
-  messageStatus: number | null;
+  messageStatus: string | null; // Now contains string status
   lastMessagePatient: string | null;
   lastMessageDoctor: string | null;
+  onPanel: boolean;
+  directBookingAllowed: boolean | null; // New field
 }
 
 interface AppointmentListResponseDto {
@@ -40,13 +43,14 @@ const API_BASE_URL = 'http://localhost:3333/v1';
 
 interface EditAppointmentData {
   id?: string;
-  status?: string;
-  paymentStatus?: string;
+  appointmentStatus?: string; // string title
+  paymentStatus?: string; // string title
   fee?: number;
   slotId?: number;
   notes?: string;
   appointmentInstructions?: string;
-  probability?: string;
+  probability?: string; // string title
+  appointmentDateTime?: string; // ISO string
   patientDetails?: {
     phone?: string;
     occupation?: string;
@@ -77,13 +81,14 @@ interface EditAppointmentData {
 }
 
 interface EditAppointmentApiData {
-  status?: number;
-  paymentStatus?: number;
+  appointmentStatus?: string;
+  paymentStatus?: string;
   fee?: number;
   slotId?: number;
   notes?: string;
   appointmentInstructions?: string;
   probability?: string;
+  appointmentDateTime?: string;
   patientDetails?: EditAppointmentData['patientDetails'];
   paInfo?: EditAppointmentData['paInfo'];
   flags?: EditAppointmentData['flags'];
@@ -119,11 +124,15 @@ const appointmentsApi = {
     if (!data.id) throw new Error('Appointment ID is required');
     console.log('Making edit request to:', `${API_BASE_URL}/appointments/${data.id}`);
     console.log('With data:', data);
+    
     const apiData: EditAppointmentApiData = {
       ...data,
-      status: data.status ? mapStatusToBackend(data.status) : undefined,
-      paymentStatus: data.paymentStatus ? mapPaymentStatusToBackend(data.paymentStatus) : undefined,
+      appointmentStatus: data.appointmentStatus,
+      paymentStatus: data.paymentStatus,
+      probability: data.probability,
+      appointmentDateTime: data.appointmentDateTime,
     };
+    
     const response = await axios.patch(`${API_BASE_URL}/appointments/${data.id}`, apiData);
     return response.data;
   },
@@ -184,6 +193,12 @@ const appointmentsApi = {
       
       const response = await axios.get(url);
       console.log('Appointments response:', response.data);
+      console.log('Raw response data:', {
+        totalRows: response.data.data?.length,
+        meta: response.data.meta,
+        firstRow: response.data.data?.[0],
+        lastRow: response.data.data?.[response.data.data.length - 1]
+      });
       
       // Transform the response to match frontend expectations
       const transformedData = {
@@ -198,9 +213,10 @@ const appointmentsApi = {
           hospitalName: appointment.hospitalName || 'Unknown',
           hospitalAddress: appointment.hospitalAddress || 'N/A',
           hospitalCity: appointment.hospitalCity || 'N/A',
+          hospitalPhone: appointment.hospitalPhone || 'N/A',
           scheduledAt: appointment.scheduledAt || null,
           fee: appointment.fee || 0,
-          status: appointment.status || 1,
+          appointmentStatus: appointment.appointmentStatus || null,
           paymentStatus: appointment.paymentStatus || null,
           createdAt: appointment.createdAt || new Date().toISOString(),
           createdToScheduledTime: appointment.createdToScheduledTime || null,
@@ -212,9 +228,17 @@ const appointmentsApi = {
           lastMessagePatient: appointment.lastMessagePatient || null,
           lastMessageDoctor: appointment.lastMessageDoctor || null,
           onPanel: appointment.onPanel || false,
+          directBookingAllowed: appointment.directBookingAllowed || null,
         })),
         meta: response.data.meta,
       };
+      
+      console.log('Transformed data:', {
+        totalRows: transformedData.data?.length,
+        meta: transformedData.meta,
+        firstRow: transformedData.data?.[0],
+        lastRow: transformedData.data?.[transformedData.data.length - 1]
+      });
       
       return transformedData;
     } catch (error) {
@@ -234,41 +258,43 @@ export const appointmentStatusMap = {
   'Inquiry': 7,
   'Showed up': 8,
   'Other': 9,
-  'Patient - Not Showed up': 10,
+  'Patient No Show': 10,
   'Patient Not Responding': 11,
-  'Doctor - Not Showed Up': 12,
+  'Doctor No Show': 12,
   'Case Declined': 13,
-  'Not Showed-up By Doctor': 14,
+  'Doctor No Show Alt': 14,
   'Powered Off': 15,
-  'Not Showed up-Billing': 16,
+  'No Show Billing': 16,
   'Duplicate': 17,
+  'Cancelled By Doctor': 18,
 } as const;
 
 export const paymentStatusMap = {
-  'No': 1,
-  'Yes': 2,
+  'Unpaid': 1,
+  'Paid': 2,
   'Evidence Received': 3,
   'Pending': 4,
-  'To Be Refund': 5,
+  'To Be Refunded': 5,
   'Refunded': 6,
 } as const;
 
-function mapStatusToFrontend(status: number): string {
-  return Object.entries(appointmentStatusMap).find(([_, value]) => value === status)?.[0] || 'Other';
-}
+// These functions are no longer needed since we're working with string values directly
+// function mapStatusToFrontend(status: number): string {
+//   return Object.entries(appointmentStatusMap).find(([_, value]) => value === status)?.[0] || 'Other';
+// }
 
-function mapPaymentStatusToFrontend(status: number | null): string {
-  if (status === null) return 'No';
-  return Object.entries(paymentStatusMap).find(([_, value]) => value === status)?.[0] || 'No';
-}
+// function mapPaymentStatusToFrontend(status: number | null): string {
+//   if (status === null) return 'No';
+//   return Object.entries(paymentStatusMap).find(([_, value]) => value === status)?.[0] || 'No';
+// }
 
-function mapStatusToBackend(status: string): number {
-  return appointmentStatusMap[status as keyof typeof appointmentStatusMap] || appointmentStatusMap['Other'];
-}
+// function mapStatusToBackend(status: string): number {
+//   return appointmentStatusMap[status as keyof typeof appointmentStatusMap] || appointmentStatusMap['Other'];
+// }
 
-function mapPaymentStatusToBackend(status: string): number {
-  return paymentStatusMap[status as keyof typeof paymentStatusMap] || paymentStatusMap['No'];
-}
+// function mapPaymentStatusToBackend(status: string): number {
+//   return paymentStatusMap[status as keyof typeof paymentStatusMap] || paymentStatusMap['No'];
+// }
 
 export type MetricKey = 'FIVE_STAR_RATE' | 'LOST_PATIENTS' | 'PENDING_CONFIRMATION' | 'SLA_BREACHES' | 'AGENT_EFFICIENCY';
 export type ViolationKey = 'TIME_CONFIRMATION_ELAPSED' | 'NOT_CONFIRMED_BY_DOCTOR' | 'TIME_RESCHEDULED' | 'HARMONY_CALL_NOT_DONE';

@@ -1,6 +1,6 @@
 # Database Seeder Commands
-> Version: 1.0.0
-> Last Updated: 2024-02-13
+> Version: 2.0.0
+> Last Updated: 2024-12-19
 
 This document outlines all available seeder commands for managing test data in the database.
 
@@ -26,15 +26,21 @@ npm run seed:one users
 |-------------|-------------|--------------|-------------|
 | `user_types` | Basic user types | None | patient, doctor, agent, admin |
 | `appointment_statuses` | Appointment status codes | None | IN_PROCESS, SCHEDULED, CANCELLED, etc. |
+| `appointment_types` | Appointment type codes | None | CONSULTATION, PROCEDURE, VIDEO_CONSULTATION, etc. |
+| `payment_statuses` | Payment status codes | None | UNPAID, PAID, EVIDENCE_RECEIVED, etc. |
+| `appointment_probabilities` | Appointment probability states | None | CONFIRMED, MAY_BE, NO_RESPONSE, etc. |
 | `categories` | Medical categories | None | Mental Health, General Medicine, Surgery |
 | `specialities` | Doctor specialities | None | Psychologist, Psychiatrist, etc. |
 | `hospitals` | Hospital records | None | 8 random hospitals |
 | `doctors` | Doctor profiles | categories, specialities | 22 doctors (70% mental health) |
+| `doctor_specialities` | Doctor speciality mappings | doctors, specialities | 1-3 additional specialities per doctor |
 | `users` | Users and patients | None | 8 agents, 1 admin, 320 patients |
 | `practices` | Doctor practices | doctors, hospitals | 1-2 practices per doctor |
 | `availabilities` | Doctor availability | practices | Mon/Wed/Fri slots |
 | `slots` | Appointment slots | practices, availabilities | 7 days of slots |
 | `appointments` | Appointments | slots, patients | ~35% of slots booked |
+| `reviews` | Reviews | doctors, users | 50-150 sample reviews |
+| `message_logs` | Message logs | appointments, users | 50-200 sample messages |
 
 ## Detailed Usage
 
@@ -63,11 +69,16 @@ npm run seed:clean:model appointments
 ```bash
 # Basic data
 npm run seed:one user_types
+npm run seed:one appointment_statuses
+npm run seed:one appointment_types
+npm run seed:one payment_statuses
+npm run seed:one appointment_probabilities
 npm run seed:one categories
 npm run seed:one specialities
 
 # Users and doctors
 npm run seed:one doctors  # Also seeds categories & specialities
+npm run seed:one doctor_specialities  # Also seeds doctors & specialities
 npm run seed:one users    # Creates agents, admin, and patients
 
 # Scheduling
@@ -77,6 +88,12 @@ npm run seed:one slots           # Also seeds availabilities & dependencies
 
 # Appointments
 npm run seed:one appointments    # Seeds everything due to dependencies
+
+# Reviews
+npm run seed:one reviews         # Seeds reviews for doctors
+
+# Message logs (optional)
+npm run seed:one message_logs    # Seeds message logs for testing
 ```
 
 ### 4. Data Relationships
@@ -86,6 +103,8 @@ The seeders maintain referential integrity by automatically handling dependencie
 ```mermaid
 graph TD
     A[appointment_statuses] --> AP[appointments]
+    PS[payment_statuses] --> AP
+    AP[appointment_probabilities] --> AP
     UT[user_types] --> U[users]
     U --> P[patients]
     P --> AP
@@ -96,7 +115,8 @@ graph TD
     DP --> AV[availabilities]
     AV --> SL[slots]
     SL --> AP
-```
+    AP --> ML[message_logs]
+    U --> ML
 
 ## Test Data Characteristics
 

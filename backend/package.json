@@ -9,7 +9,7 @@
     "seed":"ts-node prisma/seed/index.ts"
   },
   "scripts": {
-    "seed": "ts-node prisma/seed.ts",
+    "seed": "ts-node prisma/seed/index.ts",
     "seed:clean": "ts-node prisma/seed/cli.ts clean",
     "seed:clean:model": "ts-node prisma/seed/cli.ts clean",
     "seed:one": "ts-node prisma/seed/cli.ts seed",

@@ -65,7 +65,7 @@ export async function seedUsers({ prisma, debug = false }: SeederContext) {
     patientOwners.map((owner) =>
       prisma.patient.create({
         data: {
-          accountOwnerId: owner.id,
+          userId: owner.id,
           firstName: faker.person.firstName(),
           lastName: faker.person.lastName(),
           gender: pick(['male', 'female']),
@@ -77,7 +77,7 @@ export async function seedUsers({ prisma, debug = false }: SeederContext) {
           emergencyContacts: { contacts: [] },
           consentEmail: true,
           consentSms: true,
-          source: pick(['web', 'call-center', 'app']),
+          visitorSource: pick(['web', 'call-center', 'app']),
         },
       }),
     ),

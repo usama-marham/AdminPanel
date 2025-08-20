@@ -5,9 +5,9 @@ export async function seedCategories({ prisma, debug = false }: SeederContext) {
 
   await prisma.category.createMany({
     data: [
-      { name: 'Mental Health', points: 10, isOnboardingPaymentRequired: false },
-      { name: 'General Medicine', points: 5, isOnboardingPaymentRequired: false },
-      { name: 'Surgery', points: 7, isOnboardingPaymentRequired: false },
+      { name: 'Mental Health', isOnboardingPaymentRequired: false },
+      { name: 'General Medicine', isOnboardingPaymentRequired: false },
+      { name: 'Surgery', isOnboardingPaymentRequired: false },
     ],
     skipDuplicates: true,
   });

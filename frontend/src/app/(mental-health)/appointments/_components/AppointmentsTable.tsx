@@ -12,14 +12,11 @@ import {
   Typography, 
   Box, 
   Chip,
-  Select,
-  MenuItem,
-  FormControl,
   Paper,
   Divider,
 } from "@mui/material";
 
-// Status options
+// Status options - updated to match backend data
 const appointmentStatusOptions = [
   'In Process',
   'Scheduled',
@@ -30,32 +27,24 @@ const appointmentStatusOptions = [
   'Inquiry',
   'Showed up',
   'Other',
-  'Patient - Not Showed up',
+  'Patient No Show',
   'Patient Not Responding',
-  'Doctor - Not Showed Up',
+  'Doctor No Show',
   'Case Declined',
-  'Not Showed-up By Doctor',
+  'Doctor No Show Alt',
   'Powered Off',
-  'Not Showed up-Billing',
+  'No Show Billing',
   'Duplicate',
+  'Cancelled By Doctor',
 ];
 
 const paymentStatusOptions = [
-  'No',
-  'Yes',
+  'Unpaid',
+  'Paid',
   'Evidence Received',
   'Pending',
-  'To Be Refund',
+  'To Be Refunded',
   'Refunded',
-];
-
-const probabilityOptions = [
-  'Confirmed',
-  'May Be',
-  'No Response',
-  'Call Done',
-  'Address Lead',
-  'Call Back Required',
 ];
 
 interface AppointmentsTableProps {
@@ -77,33 +66,71 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
     }
   }, [error]);
 
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPaginationModel({ page: 0, pageSize: paginationModel.pageSize });
+  }, [filters]);
+
+  // Debug pagination data
+  useEffect(() => {
+    if (data) {
+      console.log('Pagination data:', {
+        currentPage: paginationModel.page + 1,
+        pageSize: paginationModel.pageSize,
+        totalRows: data.meta?.total,
+        currentRows: data.data?.length,
+        meta: data.meta,
+        firstRow: data.data?.[0],
+        lastRow: data.data?.[data.data.length - 1],
+        paginationModel: paginationModel
+      });
+    }
+  }, [data, paginationModel]);
+
+  // Debug when pagination model changes
+  useEffect(() => {
+    console.log('Pagination model updated:', paginationModel);
+  }, [paginationModel]);
+
+  // Debug when data changes
+  useEffect(() => {
+    console.log('Data changed:', {
+      dataLength: data?.data?.length,
+      meta: data?.meta,
+      paginationModel
+    });
+  }, [data]);
+
   const { setSelectedIds } = useAppointmentsStore();
 
-  // Handle status changes
+  // Handle status changes - now just logging since we're using chips
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
       // For now, just log the change. You can implement the actual API call here
       console.log('Status changed for appointment', id, 'to:', newStatus);
+      // TODO: Implement API call to update appointmentStatus in edit page
     } catch (error) {
       console.error('Failed to update status:', error);
     }
   };
 
-  // Handle payment status changes
+  // Handle payment status changes - now just logging since we're using chips
   const handlePaymentStatusChange = async (id: string, newStatus: string) => {
     try {
       // For now, just log the change. You can implement the actual API call here
       console.log('Payment status changed for appointment', id, 'to:', newStatus);
+      // TODO: Implement API call to update paymentStatus in edit page
     } catch (error) {
       console.error('Failed to update payment status:', error);
     }
   };
 
-  // Handle probability changes
+  // Handle probability changes - now just logging since we're using chips
   const handleProbabilityChange = async (id: string, newProbability: string) => {
     try {
       // For now, just log the change. You can implement the actual API call here
       console.log('Probability changed for appointment', id, 'to:', newProbability);
+      // TODO: Implement API call to update probability in edit page
     } catch (error) {
       console.error('Failed to update probability:', error);
     }
@@ -125,20 +152,44 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
     {
       field: "patient",
       headerName: "Patient",
-      width: 180,
-      minWidth: 150,
-      flex: 1,
+      width: 200,
+      minWidth: 180,
+      flex: 1.2,
       renderCell: (params) => (
-        <Box sx={{ py: 1.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {params.row.patientName}
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5
+        }}>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              fontWeight: 500,
+              fontSize: '0.875rem',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              maxWidth: '100%'
+            }}
+          >
+            {params.row.patientName || 'Unknown'}
           </Typography>
           <Typography
             variant="caption"
             color="textSecondary"
-            sx={{ display: 'block', mt: 1, fontFamily: 'monospace', fontSize: '0.75rem' }}
+            sx={{ 
+              fontFamily: 'monospace', 
+              fontSize: '0.75rem',
+              lineHeight: 1.2,
+              wordBreak: 'break-all',
+              overflowWrap: 'break-word',
+              maxWidth: '100%'
+            }}
           >
-            {params.row.patientPhone}
+            {params.row.patientPhone || 'N/A'}
           </Typography>
         </Box>
       ),
@@ -146,20 +197,44 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
     {
       field: "doctor",
       headerName: "Doctor",
-      width: 180,
-      minWidth: 150,
-      flex: 1,
+      width: 200,
+      minWidth: 180,
+      flex: 1.2,
       renderCell: (params) => (
-        <Box sx={{ py: 1.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {params.row.doctorName}
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5
+        }}>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              fontWeight: 500,
+              fontSize: '0.875rem',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              maxWidth: '100%'
+            }}
+          >
+            {params.row.doctorName || 'Unknown'}
           </Typography>
           <Typography
             variant="caption"
             color="textSecondary"
-            sx={{ display: 'block', mt: 1, fontFamily: 'monospace', fontSize: '0.75rem' }}
+            sx={{ 
+              fontFamily: 'monospace', 
+              fontSize: '0.75rem',
+              lineHeight: 1.2,
+              wordBreak: 'break-all',
+              overflowWrap: 'break-word',
+              maxWidth: '100%'
+            }}
           >
-            {params.row.doctorPhone}
+            {params.row.doctorPhone || 'N/A'}
           </Typography>
         </Box>
       ),
@@ -167,30 +242,57 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
     {
       field: "doctorSpecialty",
       headerName: "Specialty",
-      width: 140,
-      minWidth: 120,
-      flex: 0.8,
+      width: 160,
+      minWidth: 140,
+      flex: 0.9,
       renderCell: (params) => (
-        <Typography variant="body2">
-          {params.row.doctorSpecialty}
-        </Typography>
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              fontSize: '0.875rem',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              maxWidth: '100%'
+            }}
+          >
+            {params.row.doctorSpecialty || 'N/A'}
+          </Typography>
+        </Box>
       ),
     },
     {
       field: "hospital",
       headerName: "Hospital",
-      width: 200,
-      minWidth: 180,
-      flex: 1.2,
+      width: 300,
+      minWidth: 280,
+      flex: 2,
       renderCell: (params) => (
-        <Box sx={{ py: 1.5, width: '100%' }}>
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5
+        }}>
           <Typography 
             variant="body2" 
             sx={{ 
               fontWeight: 600, 
               color: 'text.primary',
+              fontSize: '0.875rem',
               lineHeight: 1.3,
-              mb: 0.5
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              maxWidth: '100%'
             }}
           >
             {params.row.hospitalName || 'N/A'}
@@ -200,10 +302,13 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
               variant="caption"
               color="text.secondary"
               sx={{ 
-                display: 'block', 
                 fontSize: '0.75rem',
                 lineHeight: 1.2,
-                color: 'text.secondary'
+                color: 'text.secondary',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                hyphens: 'auto',
+                maxWidth: '100%'
               }}
             >
               {params.row.hospitalAddress}
@@ -214,11 +319,14 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
               variant="caption"
               color="text.secondary"
               sx={{ 
-                display: 'block',
                 fontSize: '0.75rem',
                 lineHeight: 1.2,
                 color: 'text.secondary',
-                fontStyle: 'italic'
+                fontStyle: 'italic',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                hyphens: 'auto',
+                maxWidth: '100%'
               }}
             >
               {params.row.hospitalCity}
@@ -228,18 +336,102 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
       ),
     },
     {
+      field: "apptPhone",
+      headerName: "Appt. Phone",
+      width: 140,
+      minWidth: 130,
+      flex: 0.7,
+      renderCell: (params) => (
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ 
+              fontFamily: 'monospace',
+              fontSize: '0.875rem',
+              lineHeight: 1.2,
+              wordBreak: 'break-all',
+              overflowWrap: 'break-word',
+              maxWidth: '100%'
+            }}
+          >
+            {params.row.hospitalPhone || 'N/A'}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      field: "directBooking",
+      headerName: "Direct Booking",
+      width: 150,
+      minWidth: 140,
+      flex: 0.8,
+      renderCell: (params) => (
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Chip
+            label={params.row.directBookingAllowed ? "Allowed" : "Not Allowed"}
+            size="small"
+            color={params.row.directBookingAllowed ? "success" : "default"}
+            variant={params.row.directBookingAllowed ? "filled" : "outlined"}
+            sx={{ 
+              fontSize: '0.75rem',
+              height: '24px',
+              '& .MuiChip-label': { px: 1 },
+              maxWidth: '100%',
+              minWidth: 'fit-content'
+            }}
+          />
+        </Box>
+      ),
+    },
+    {
       field: "scheduledAt",
       headerName: "Appointment Time",
-      width: 160,
-      minWidth: 140,
-      flex: 1,
+      width: 180,
+      minWidth: 160,
+      flex: 1.1,
       renderCell: (params) => (
-        <Box sx={{ py: 1.5 }}>
-          <Typography variant="body2">
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5
+        }}>
+          <Typography 
+            variant="body2"
+            sx={{
+              fontSize: '0.875rem',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              maxWidth: '100%'
+            }}
+          >
             {params.row.scheduledAt ? format(new Date(params.row.scheduledAt), 'PPp') : 'Not scheduled'}
           </Typography>
           {params.row.createdToScheduledTime && (
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+            <Typography 
+              variant="caption" 
+              color="textSecondary" 
+              sx={{ 
+                fontSize: '0.75rem',
+                lineHeight: 1.2,
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                maxWidth: '100%'
+              }}
+            >
               Booked {params.row.createdToScheduledTime} before
             </Typography>
           )}
@@ -249,85 +441,171 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
     {
       field: "fee",
       headerName: "Fee",
-      width: 80,
-      minWidth: 70,
-      flex: 0.5,
+      width: 100,
+      minWidth: 80,
+      flex: 0.6,
       renderCell: (params) => (
-        <Typography variant="body2">
-          {params.row.fee ? `₹${params.row.fee}` : '-'}
-        </Typography>
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Typography variant="body2" sx={{ 
+            fontSize: '0.875rem',
+            lineHeight: 1.2,
+            maxWidth: '100%'
+          }}>
+            {params.row.fee || '-'}
+          </Typography>
+        </Box>
       ),
     },
     {
-      field: "status",
+      field: "appointmentStatus",
       headerName: "Status",
-      width: 160,
-      minWidth: 140,
-      flex: 1,
+      width: 170,
+      minWidth: 150,
+      flex: 1.1,
       renderCell: (params) => (
-        <FormControl fullWidth size="small">
-          <Select
-            value={params.row.status || 'In Process'}
-            onChange={(e) => handleStatusChange(params.row.id, e.target.value)}
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Chip
+            label={params.row.appointmentStatus || 'In Process'}
+            size="small"
+            color={
+              params.row.appointmentStatus === 'Scheduled' ? 'success' :
+              params.row.appointmentStatus === 'Cancelled' ? 'error' :
+              params.row.appointmentStatus === 'Patient No Show' ? 'warning' :
+              params.row.appointmentStatus === 'Doctor No Show' ? 'error' :
+              params.row.appointmentStatus === 'Showed up' ? 'success' :
+              params.row.appointmentStatus === 'In Process' ? 'info' :
+              'default'
+            }
+            variant="filled"
             sx={{ 
-              minWidth: 140,
-              '& .MuiSelect-select': {
-                py: 1,
-              }
+              fontSize: '0.75rem',
+              height: '24px',
+              '& .MuiChip-label': { px: 1 },
+              maxWidth: '100%'
             }}
-          >
-            {appointmentStatusOptions.map((status) => (
-              <MenuItem key={status} value={status}>
-                {status}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+          />
+        </Box>
       ),
     },
     {
       field: "paymentStatus",
       headerName: "Payment",
-      width: 140,
-      minWidth: 120,
-      flex: 0.8,
+      width: 150,
+      minWidth: 130,
+      flex: 0.9,
       renderCell: (params) => (
-        <FormControl fullWidth size="small">
-          <Select
-            value={params.row.paymentStatus || 'No'}
-            onChange={(e) => handlePaymentStatusChange(params.row.id, e.target.value)}
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Chip
+            label={params.row.paymentStatus || 'Unpaid'}
+            size="small"
+            color={
+              params.row.paymentStatus === 'Paid' ? 'success' :
+              params.row.paymentStatus === 'Unpaid' ? 'error' :
+              params.row.paymentStatus === 'Pending' ? 'warning' :
+              params.row.paymentStatus === 'Evidence Received' ? 'info' :
+              params.row.paymentStatus === 'To Be Refunded' ? 'warning' :
+              params.row.paymentStatus === 'Refunded' ? 'default' :
+              'default'
+            }
+            variant="filled"
             sx={{ 
-              minWidth: 120,
-              '& .MuiSelect-select': {
-                py: 1,
-              }
+              fontSize: '0.75rem',
+              height: '24px',
+              '& .MuiChip-label': { px: 1 },
+              maxWidth: '100%'
             }}
-          >
-            {paymentStatusOptions.map((status) => (
-              <MenuItem key={status} value={status}>
-                {status}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+          />
+        </Box>
       ),
     },
     {
-      field: "booking",
-      headerName: "Booking Info",
-      width: 180,
-      minWidth: 160,
-      flex: 1,
+      field: "bookedBy",
+      headerName: "Booked By",
+      width: 130,
+      minWidth: 120,
+      flex: 0.8,
       renderCell: (params) => (
-        <Box sx={{ py: 1.5 }}>
-          <Typography variant="body2">
-            By: {params.row.bookedBy || 'Unknown'}
-          </Typography>
-          <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-            From: {params.row.bookedFrom || 'Unknown'}
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Chip
+            label={params.row.bookedBy || 'Unknown'}
+            size="small"
+            color={
+              params.row.bookedBy === 'Admin' ? 'primary' :
+              params.row.bookedBy === 'Patient' ? 'success' :
+              params.row.bookedBy === 'Agent' ? 'warning' : 'default'
+            }
+            variant="filled"
+            sx={{ 
+              fontSize: '0.75rem',
+              height: '24px',
+              '& .MuiChip-label': { px: 1 },
+              maxWidth: '100%',
+              minWidth: 'fit-content'
+            }}
+          />
+        </Box>
+      ),
+    },
+    {
+      field: "bookedFrom",
+      headerName: "Booked From",
+      width: 140,
+      minWidth: 130,
+      flex: 0.8,
+      renderCell: (params) => (
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5
+        }}>
+          <Typography
+            variant="body2"
+            sx={{ 
+              fontSize: '0.875rem',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              maxWidth: '100%'
+            }}
+          >
+            {params.row.bookedFrom || 'Unknown'}
           </Typography>
           {params.row.acquisition && (
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+            <Typography
+              variant="caption"
+              color="textSecondary"
+              sx={{ 
+                fontSize: '0.75rem',
+                lineHeight: 1.2,
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                hyphens: 'auto',
+                maxWidth: '100%'
+              }}
+            >
               Via: {params.row.acquisition}
             </Typography>
           )}
@@ -337,23 +615,65 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
     {
       field: "messageStatus",
       headerName: "Messages",
-      width: 180,
-      minWidth: 160,
-      flex: 1,
+      width: 200,
+      minWidth: 180,
+      flex: 1.2,
       renderCell: (params) => (
-        <Box sx={{ py: 1.5 }}>
-          {params.row.messageStatus !== null && (
-            <Typography variant="body2">
-              Status: {params.row.messageStatus}
-            </Typography>
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.5
+        }}>
+          {params.row.messageStatus && (
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Chip
+                label={params.row.messageStatus}
+                size="small"
+                color={
+                  params.row.messageStatus === 'Delivered' ? 'success' :
+                  params.row.messageStatus === 'Failed' ? 'error' :
+                  params.row.messageStatus === 'Pending' ? 'warning' :
+                  'default'
+                }
+                variant="filled"
+                sx={{ 
+                  fontSize: '0.75rem',
+                  height: '20px',
+                  '& .MuiChip-label': { px: 1 },
+                  maxWidth: '100%'
+                }}
+              />
+            </Box>
           )}
           {params.row.lastMessagePatient && (
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+            <Typography 
+              variant="caption" 
+              color="textSecondary" 
+              sx={{ 
+                fontSize: '0.75rem',
+                lineHeight: 1.2,
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                maxWidth: '100%'
+              }}
+            >
               Patient: {formatDistanceToNow(new Date(params.row.lastMessagePatient))} ago
             </Typography>
           )}
           {params.row.lastMessageDoctor && (
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+            <Typography 
+              variant="caption" 
+              color="textSecondary" 
+              sx={{ 
+                fontSize: '0.75rem',
+                lineHeight: 1.2,
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+                maxWidth: '100%'
+              }}
+            >
               Doctor: {formatDistanceToNow(new Date(params.row.lastMessageDoctor))} ago
             </Typography>
           )}
@@ -363,99 +683,154 @@ export function AppointmentsTable({ filters = {} }: AppointmentsTableProps) {
     {
       field: "probability",
       headerName: "Probability",
-      width: 140,
-      minWidth: 120,
-      flex: 0.8,
+      width: 150,
+      minWidth: 130,
+      flex: 0.9,
       renderCell: (params) => (
-        <FormControl fullWidth size="small">
-          <Select
-            value={params.row.probability || 'No Response'}
-            onChange={(e) => handleProbabilityChange(params.row.id, e.target.value)}
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Chip
+            label={params.row.probability || 'No Response'}
+            size="small"
+            color={
+              params.row.probability === 'Confirmed' ? 'success' :
+              params.row.probability === 'May Be' ? 'warning' :
+              params.row.probability === 'No Response' ? 'error' :
+              params.row.probability === 'Call Done' ? 'info' :
+              params.row.probability === 'Address Lead' ? 'primary' :
+              params.row.probability === 'Callback Required' ? 'secondary' :
+              'default'
+            }
+            variant="filled"
             sx={{ 
-              minWidth: 120,
-              '& .MuiSelect-select': {
-                py: 1,
-              }
+              fontSize: '0.75rem',
+              height: '24px',
+              '& .MuiChip-label': { px: 1 },
+              maxWidth: '100%'
             }}
-          >
-            {probabilityOptions.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+          />
+        </Box>
       ),
     },
     {
       field: "createdAt",
-      headerName: "Created",
-      width: 160,
-      minWidth: 140,
-      flex: 1,
+      headerName: "Created At",
+      width: 200,
+      minWidth: 180,
+      flex: 1.2,
       renderCell: (params) => (
-        <Typography variant="body2">
-          {format(new Date(params.row.createdAt), 'PPp')}
-        </Typography>
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              fontSize: '0.875rem',
+              lineHeight: 1.2, 
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              maxWidth: '100%'
+            }}
+          >
+            {format(new Date(params.row.createdAt), 'PPpp')}
+          </Typography>
+        </Box>
       ),
     },
     {
       field: "actions",
       headerName: "Actions",
-      width: 80,
-      minWidth: 70,
-      flex: 0.5,
+      width: 100,
+      minWidth: 80,
+      flex: 0.6,
       renderCell: (params) => (
-        <Tooltip title="Edit Appointment">
-          <IconButton
-            size="small"
-            onClick={() => {
-              window.open(`/appointments/${params.row.id}/edit`, '_blank');
-            }}
-          >
-            <Edit fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ 
+          width: '100%',
+          py: 1,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
+          <Tooltip title="Edit Appointment">
+            <IconButton
+              size="small"
+              onClick={() => {
+                window.open(`/appointments/${params.row.id}/edit`, '_blank');
+              }}
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       ),
     },
   ];
 
   return (
-    <Box sx={{ height: "calc(100vh - 400px)", width: "100%", overflow: "hidden" }}>
+    <Box sx={{ width: "100%" }}>
       <DataGrid
         rows={data?.data || []}
         columns={columns}
         loading={isLoading}
-        checkboxSelection
-        disableRowSelectionOnClick
-        initialState={{ 
-          pagination: { paginationModel: { pageSize: 10 } }, 
-          sorting: { sortModel: [{ field: 'createdAt', sort: 'desc' }] } 
-        }}
-        pageSizeOptions={[10, 25, 50]}
+        pagination
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
-        pagination
-        onRowSelectionModelChange={(newSelection) => { setSelectedIds(newSelection as string[]); }}
-        sortingMode="client"
-        sx={{ 
-          '& .MuiDataGrid-cell': { py: 0.5 },
-          '& .MuiDataGrid-root': { width: '100%' },
-          '& .MuiDataGrid-main': { width: '100%' },
-          '& .MuiDataGrid-virtualScroller': { width: '100%' },
-          '& .MuiDataGrid-virtualScrollerContent': { width: '100%' },
-          '& .MuiDataGrid-virtualScrollerRenderZone': { width: '100%' },
-          '& .MuiDataGrid-columnHeaders': { width: '100%' },
-          '& .MuiDataGrid-footerContainer': { width: '100%' },
+        pageSizeOptions={[10, 25, 50, 100]}
+        rowCount={data?.meta?.total || 0}
+        autoHeight
+        getRowHeight={() => 'auto'}
+        disableRowSelectionOnClick
+        sx={{
+          '& .MuiDataGrid-cell': {
+            borderBottom: '1px solid #e0e0e0',
+            padding: '8px 16px',
+            '&:focus': {
+              outline: 'none',
+            },
+            // Ensure text doesn't overflow
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'normal',
+            wordWrap: 'break-word',
+            minHeight: '60px',
+            display: 'flex',
+            alignItems: 'center',
+          },
+          '& .MuiDataGrid-columnHeaders': {
+            backgroundColor: '#f5f5f5',
+            borderBottom: '2px solid #e0e0e0',
+          },
+          '& .MuiDataGrid-row': {
+            '&:hover': {
+              backgroundColor: '#f8f8f8',
+            },
+            minHeight: '60px !important',
+          },
+          // Ensure columns can grow and shrink properly
+          '& .MuiDataGrid-column': {
+            minWidth: '80px !important',
+          },
+          // Handle text overflow in cells
+          '& .MuiDataGrid-cellContent': {
+            width: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'normal',
+            wordWrap: 'break-word',
+          },
+          // Ensure proper spacing
+          '& .MuiDataGrid-virtualScroller': {
+            overflow: 'auto',
+          },
         }}
-        columnVisibilityModel={{
-          // Hide some columns on smaller screens if needed
-          // You can customize this based on screen size
-        }}
-        disableColumnMenu={false}
-        disableColumnFilter={false}
-        disableColumnSelector={false}
-        density="compact"
+        key={`${JSON.stringify(data?.data?.length)}-${JSON.stringify(paginationModel)}`}
       />
     </Box>
   );

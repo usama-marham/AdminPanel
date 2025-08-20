@@ -2,30 +2,42 @@ import { PrismaClient } from '@prisma/client';
 import { cleanupAll, cleanupModel } from './utils/cleanup';
 import { seedUserTypes } from './user_types.seed';
 import { seedAppointmentStatuses } from './appointment_statuses.seed';
+import { seedAppointmentTypes } from './appointment_types.seed';
+import { seedPaymentStatuses } from './payment_statuses.seed';
+import { seedAppointmentProbabilities } from './appointment_probabilities.seed';
 import { seedCategories } from './categories.seed';
 import { seedSpecialities } from './specialities.seed';
 import { seedHospitals } from './hospitals.seed';
 import { seedDoctors } from './doctors.seed';
+import { seedDoctorSpecialities } from './doctor_specialities.seed';
 import { seedUsers } from './users.seed';
 import { seedPractices } from './practices.seed';
 import { seedAvailabilities } from './availabilities.seed';
 import { seedSlots } from './slots.seed';
 import { seedAppointments } from './appointments.seed';
+import { seedReviews } from './reviews.seed';
+import { seedMessageLogs } from './message_logs.seed';
 import { SeederContext } from './types';
 
 // Define the seeder names first
 const SEEDER_NAMES = [
   'user_types',
   'appointment_statuses',
+  'appointment_types',
+  'payment_statuses',
+  'appointment_probabilities',
   'categories',
   'specialities',
   'hospitals',
   'doctors',
+  'doctor_specialities',
   'users',
   'practices',
   'availabilities',
   'slots',
   'appointments',
+  'reviews',
+  'message_logs',
 ] as const;
 
 type SeederName = typeof SEEDER_NAMES[number];
@@ -35,29 +47,41 @@ type SeederFunction = (context: SeederContext, ...args: any[]) => Promise<any>;
 const SEEDERS: Record<SeederName, SeederFunction> = {
   'user_types': seedUserTypes,
   'appointment_statuses': seedAppointmentStatuses,
+  'appointment_types': seedAppointmentTypes,
+  'payment_statuses': seedPaymentStatuses,
+  'appointment_probabilities': seedAppointmentProbabilities,
   categories: seedCategories,
   specialities: seedSpecialities,
   hospitals: seedHospitals,
   doctors: seedDoctors,
+  'doctor_specialities': seedDoctorSpecialities,
   users: seedUsers,
   practices: seedPractices,
   availabilities: seedAvailabilities,
   slots: seedSlots,
   appointments: seedAppointments,
+  reviews: seedReviews,
+  'message_logs': seedMessageLogs,
 };
 
 const MODEL_MAP: Record<SeederName, string> = {
   'user_types': 'userType',
   'appointment_statuses': 'appointmentStatus',
+  'appointment_types': 'appointmentType',
+  'payment_statuses': 'paymentStatus',
+  'appointment_probabilities': 'appointmentProbability',
   categories: 'category',
   specialities: 'speciality',
   hospitals: 'hospital',
   doctors: 'doctor',
+  'doctor_specialities': 'doctorSpeciality',
   users: 'user',
   practices: 'doctorPractice',
   availabilities: 'availability',
   slots: 'appointmentSlot',
   appointments: 'appointment',
+  reviews: 'review',
+  'message_logs': 'messageLog',
 };
 
 async function runSeeder(name: SeederName, prisma: PrismaClient, debug = true) {

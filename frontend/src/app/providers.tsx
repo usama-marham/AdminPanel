@@ -1,18 +1,17 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { ReactNode, useState } from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { useState } from 'react';
 
-export function Providers({ children }: { children: ReactNode }) {
+export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 5 * 60 * 1000, // 5 minutes
+            staleTime: 60 * 1000,
             refetchOnWindowFocus: false,
           },
         },
@@ -23,7 +22,6 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         {children}
-        <ReactQueryDevtools initialIsOpen={false} />
       </LocalizationProvider>
     </QueryClientProvider>
   );

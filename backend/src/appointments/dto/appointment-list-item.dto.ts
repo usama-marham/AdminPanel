@@ -14,27 +14,31 @@ export class AppointmentListItemDto {
   hospitalName!: string | null;
   hospitalAddress!: string | null;
   hospitalCity!: string | null;
+  hospitalPhone!: string | null; // New field for hospital phone number
 
   // Appointment Times
-  scheduledAt!: string | null; // ISO string from slot.startTs
+  scheduledAt!: string | null; // ISO string from appointmentDateTime
   createdToScheduledTime!: string | null; // Time difference between creation and scheduled time
   
   // Fees and Payment
   fee!: number | null;
-  paymentStatus!: number | null;
+  paymentStatus!: string | null; // Now contains the title from PaymentStatus model
 
   // Status and Messages
-  status!: number;
-  messageStatus!: string | null; // This needs to be added to schema
+  appointmentStatus!: string | null; // Renamed from status, contains title from AppointmentStatus model
+  messageStatus!: string | null; // "Delivered" or "Not Delivered" based on MessageLog
   lastMessagePatient!: string | null; // This needs to be added to schema
   lastMessageDoctor!: string | null; // This needs to be added to schema
-  onPanel?: boolean; // Doctor on-panel status
 
   // Booking Info
-  bookedBy!: string | null; // User who created the appointment
+  bookedBy!: string | null; // User type: Admin, Patient, or Agent from UserType
   bookedFrom!: string | null; // Source/platform of booking
-  probability!: number | null; // This needs to be added to schema
+  probability!: string | null; // Now contains the name from AppointmentProbability model
   acquisition!: string | null; // This needs to be added to schema
+
+  // Doctor Practice Info
+  directBookingAllowed!: boolean | null; // New field: whether doctor allows direct booking
+  onPanel!: boolean; // Doctor on-panel status
 
   createdAt!: string; // appointment.createdAt (booking time)
 }

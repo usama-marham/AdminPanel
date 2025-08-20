@@ -23,9 +23,21 @@ export const APPT_STATUS = {
 } as const;
 
 export const PAYMENT_STATUS = {
-  UNPAID: 0,
-  PAID: 1,
-  REFUNDED: 2,
+  UNPAID: 1,
+  PAID: 2,
+  EVIDENCE_RECEIVED: 3,
+  PENDING: 4,
+  TO_BE_REFUNDED: 5,
+  REFUNDED: 6,
+} as const;
+
+export const APPOINTMENT_PROBABILITY = {
+  CONFIRMED: 1,
+  MAY_BE: 2,
+  NO_RESPONSE: 3,
+  CALL_DONE: 4,
+  ADDRESS_LEAD: 5,
+  CALLBACK_REQUIRED: 6,
 } as const;
 
 export const SLOT_STATUS = {
